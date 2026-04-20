@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../module/disposable.dart';
 import '../module/rack_injector.dart';
 
+// ignore: must_be_immutable
 abstract class RackWidget<C> extends StatelessWidget {
   abstract C Function(RackInjector injector) create;
   abstract Widget Function(BuildContext context, C controller) builder;
