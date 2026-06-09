@@ -1,27 +1,21 @@
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+class RackEntry {
+  final Type type;
+  final Object Function() create;
+  final void Function(Object)? dispose;
 
-class RackBindings {
-  final List<RackBinding> _bindings = [];
-
-  void add<T>(T Function() create, {void Function(T value)? dispose}) {
-    _bindings.add(RackBinding<T>(create: create, dispose: dispose));
-  }
-
-  List<RackBinding> get bindings => _bindings;
+  RackEntry({required this.type, required this.create, this.dispose});
 }
 
-class RackBinding<T> {
-  final T Function() create;
-  final void Function(T value)? dispose;
+class RackBindings {
+  final List<RackEntry> _entries = [];
 
-  RackBinding({required this.create, this.dispose});
-
-  Widget wrap(Widget child) {
-    return Provider<T>(
-      create: (_) => create(),
-      dispose: (_, value) => dispose?.call(value),
-      child: child,
-    );
+  void add<T extends Object>(T Function() create, {void Function(T)? dispose}) {
+    _entries.add(RackEntry(
+      type: T,
+      create: create,
+      dispose: dispose != null ? (obj) => dispose(obj as T) : null,
+    ));
   }
+
+  List<RackEntry> get entries => List.unmodifiable(_entries);
 }

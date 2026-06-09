@@ -1,24 +1,36 @@
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter/widgets.dart';
+import 'package:signals_flutter/signals_flutter.dart';
 import '../module/disposable.dart';
 import '../module/rack_injector.dart';
 
-class RackWidget<C> extends StatelessWidget {
-  final C Function(RackInjector injector) create;
-  final Widget Function(BuildContext context, C controller) builder;
+abstract class RackWidget<C extends Object> extends StatefulWidget {
+  const RackWidget({super.key});
 
-  const RackWidget({super.key, required this.create, required this.builder});
+  C create(RackInjector injector);
+  Widget buildContent(BuildContext context, C controller);
+
+  @override
+  State<RackWidget<C>> createState() => _RackWidgetState<C>();
+}
+
+class _RackWidgetState<C extends Object> extends State<RackWidget<C>> {
+  C? _controller;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _controller ??= widget.create(RackInjector(context));
+  }
+
+  @override
+  void dispose() {
+    final c = _controller;
+    if (c is Disposable) c.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Provider<C>(
-      create: (context) => create(RackInjector(context)),
-      dispose: (_, controller) {
-        if (controller is Disposable) controller.dispose();
-      },
-      child: Builder(
-        builder: (context) => builder(context, context.read<C>()),
-      ),
-    );
+    return Watch((ctx) => widget.buildContent(ctx, _controller!));
   }
 }

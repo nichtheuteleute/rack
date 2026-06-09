@@ -5,7 +5,7 @@ class RackRegistry {
 
   RackRegistry(this._bindings);
 
-  void register<T>(
+  void register<T extends Object>(
     T Function() create, {
     void Function(T value)? dispose,
   }) {
