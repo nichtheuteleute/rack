@@ -1,21 +1,20 @@
-import '../core/rack_registry.dart';
 import '../module/rack_module.dart';
+import '../module/rack_setup.dart';
+
+class AuthStore {}
+
+class UserStore {}
 
 class AuthModule extends RackModule {
   @override
-  void register(RackRegistry registry) {
-    registry.register<AuthStore>(() => AuthStore());
+  Future<void> setup(RackSetup rack) async {
+    rack.registerInstance<AuthStore>(AuthStore());
   }
 }
 
 class UserModule extends RackModule {
   @override
-  void register(RackRegistry registry) {
-    registry.register<UserStore>(() => UserStore());
+  Future<void> setup(RackSetup rack) async {
+    rack.registerInstance<UserStore>(UserStore());
   }
 }
-
-// Placeholder stores
-class AuthStore {}
-
-class UserStore {}

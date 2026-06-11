@@ -1,12 +1,12 @@
 import 'package:flutter/widgets.dart';
 import 'package:signals_flutter/signals_flutter.dart';
 import '../module/disposable.dart';
-import '../module/rack_injector.dart';
+import '../module/rack.dart';
 
 abstract class RackWidget<C extends Object> extends StatefulWidget {
   const RackWidget({super.key});
 
-  C create(RackInjector injector);
+  C create(Rack rack);
   Widget buildContent(BuildContext context, C controller);
 
   @override
@@ -19,7 +19,7 @@ class _RackWidgetState<C extends Object> extends State<RackWidget<C>> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _controller ??= widget.create(RackInjector(context));
+    _controller ??= widget.create(Rack(context));
   }
 
   @override

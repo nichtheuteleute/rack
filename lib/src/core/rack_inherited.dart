@@ -1,16 +1,16 @@
 import 'package:flutter/widgets.dart';
 
 class RackInherited extends InheritedWidget {
-  final Map<Type, Object> _services;
+  final Map<Type, Object> services;
 
   const RackInherited({
     super.key,
-    required Map<Type, Object> services,
+    required this.services,
     required super.child,
-  }) : _services = services;
+  });
 
   T get<T extends Object>() {
-    final service = _services[T];
+    final service = services[T];
     assert(service != null, 'No service registered for type $T in Rack');
     return service as T;
   }
