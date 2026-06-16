@@ -13,7 +13,7 @@ class RackSetup {
     return result as T;
   }
 
-  void registerInstance<T extends Object>(T instance, {void Function(T)? dispose}) {
+  void register<T extends Object>(T instance, {void Function(T)? dispose}) {
     _services[T] = instance;
     if (dispose != null) {
       _disposers.add(() => dispose(instance));

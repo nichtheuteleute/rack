@@ -8,13 +8,13 @@ class UserStore {}
 class AuthModule extends RackModule {
   @override
   Future<void> setup(RackSetup rack) async {
-    rack.registerInstance<AuthStore>(AuthStore());
+    rack.register<AuthStore>(AuthStore());
   }
 }
 
 class UserModule extends RackModule {
   @override
   Future<void> setup(RackSetup rack) async {
-    rack.registerInstance<UserStore>(UserStore());
+    rack.register<UserStore>(UserStore());
   }
 }

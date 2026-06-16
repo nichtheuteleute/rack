@@ -28,8 +28,8 @@ State management is not Rack's job. Rack works with signals, streams, or plain D
 ```dart
 class SettingsModule extends RackModule {
   @override
-  void register(RackRegistry r) {
-    r.register<SettingsStore>(() => SettingsStore());
+  Future<void> setup(RackSetup rack) async {
+    rack.register<SettingsStore>(SettingsStore());
   }
 }
 ```
@@ -49,46 +49,44 @@ Done. `SettingsStore` lives as long as the app. If it implements `Disposable`, i
 
 ### 2. Service that depends on another service
 
-Use `init()` when setup requires an already-registered service:
+`setup()` is async and receives a `RackSetup` that can read already-registered services:
 
 ```dart
 class FilesModule extends RackModule {
   @override
-  Future<void> init(Rack rack) async {
+  Future<void> setup(RackSetup rack) async {
     final settings = rack.read<SettingsStore>();
     await rack.read<FilesStore>().init(settings.value);
   }
 }
 ```
 
-`init()` is called after all `register()` calls complete. If `SettingsStore` isn't registered yet, the app asserts at startup with a clear message — not silently later.
+Modules run in declaration order. If `SettingsStore` isn't registered yet, the app asserts at startup with a clear message — not silently later.
 
 ---
 
-### 3. Async-constructed service (registerInstance)
+### 3. Async-constructed service
 
-Some services can't be created synchronously — they need async I/O before they're ready (auth tokens, file handles, remote config). Use `registerInstance` inside `init()` to register the fully-constructed instance directly, with no dummy placeholder required:
+Some services can't be created synchronously — they need async I/O before they're ready (auth tokens, file handles, remote config). Build and register in a single `setup()`:
 
 ```dart
 class FilesModule extends RackModule {
   @override
-  Future<void> init(Rack rack) async {
+  Future<void> setup(RackSetup rack) async {
     final settings = rack.read<SettingsStore>().settings.value;
 
-    // Build the real instance asynchronously
     final source = settings.useCloudStorage
         ? await CloudFileSource.create(token: settings.token)
         : await LocalFileSource.create();
 
-    // Register the finished instance — available to subsequent modules immediately
-    rack.registerInstance<FilesStore>(FilesStore(fileSource: source));
+    rack.register<FilesStore>(FilesStore(fileSource: source));
   }
 }
 ```
 
-No `register()` override needed. No wrapper class to proxy the real object. The instance is written into the live service map, so any module that runs `init()` after this one can `read<FilesStore>()` and get the real thing.
+The registered instance is available immediately to modules that run `setup()` after this one.
 
-This is not possible in `flutter_provider`, which separates `create` (sync, called once) from async side effects. Rack merges them into a single `init()` phase, making the async→register flow first-class.
+This is not possible in `flutter_provider`, which separates `create` (sync, called once) from async side effects. Rack merges them into a single `setup()` phase, making the async→register flow first-class.
 
 ---
 
@@ -160,8 +158,8 @@ Some services belong to a screen, not the whole app — a search store, a form s
 ```dart
 class EditorModule extends RackModule {
   @override
-  void register(RackRegistry r) {
-    r.register<EditorSearchStore>(() => EditorSearchStore());
+  Future<void> setup(RackSetup rack) async {
+    rack.register<EditorSearchStore>(EditorSearchStore());
   }
 }
 
