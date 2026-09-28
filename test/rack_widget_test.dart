@@ -32,8 +32,7 @@ class _DisposableWidget extends RackWidget<_DisposableController> {
   const _DisposableWidget({required this.onDispose});
 
   @override
-  _DisposableController create(Rack rack) =>
-      _DisposableController(onDispose);
+  _DisposableController create(Rack rack) => _DisposableController(onDispose);
 
   @override
   Widget buildContent(BuildContext context, _DisposableController controller) =>
@@ -63,20 +62,16 @@ class _ServiceWidget extends RackWidget<_ServiceController> {
 
   @override
   _ServiceController create(Rack rack) =>
-      _ServiceController(rack.read<String>());
+      _ServiceController(rack.module<_ValueModule>().value);
 
   @override
   Widget buildContent(BuildContext context, _ServiceController controller) =>
       Text(controller.value);
 }
 
-class _StringModule extends RackModule {
-  final String _value;
-  const _StringModule(this._value);
-
-  @override
-  Future<void> setup(RackSetup rack) async =>
-      rack.register<String>(_value);
+class _ValueModule extends RackModule {
+  _ValueModule(this.value);
+  final String value;
 }
 
 Widget _wrap(Widget child) =>
@@ -127,12 +122,13 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('controller receives services from Rack and shows them in buildContent',
+    testWidgets(
+        'controller reads a module from Rack and shows it in buildContent',
         (tester) async {
       await tester.pumpWidget(
         _wrap(
           RackProvider(
-            modules: [const _StringModule('rack-value')],
+            modules: [_ValueModule('rack-value')],
             builder: () => const _ServiceWidget(),
           ),
         ),

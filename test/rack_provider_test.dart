@@ -4,54 +4,33 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:morph_md_rack/rack.dart';
 
+class _ValueModule extends RackModule {
+  _ValueModule(this.value);
+  final String value;
+}
+
 class _SlowModule extends RackModule {
+  _SlowModule(this._completer);
   final Completer<void> _completer;
-  const _SlowModule(this._completer);
 
   @override
-  Future<void> setup(RackSetup rack) => _completer.future;
+  Future<void> init() => _completer.future;
 }
 
 class _ThrowingModule extends RackModule {
-  const _ThrowingModule();
-
   @override
-  Future<void> setup(RackSetup rack) async => throw Exception('boom');
+  Future<void> init() async => throw Exception('boom');
 }
 
-class _StringModule extends RackModule {
-  final String _value;
-  const _StringModule(this._value);
-
-  @override
-  Future<void> setup(RackSetup rack) async =>
-      rack.register<String>(_value);
-}
-
-class _ServiceA implements Disposable {
-  final List<String> log;
-  _ServiceA(this.log);
-
-  @override
-  void dispose() => log.add('A');
-}
-
-class _ServiceB implements Disposable {
-  final List<String> log;
-  _ServiceB(this.log);
-
-  @override
-  void dispose() => log.add('B');
-}
-
-class _ABModule extends RackModule {
+class _DisposeOrderModule extends RackModule {
+  _DisposeOrderModule(this._log, this._tag);
   final List<String> _log;
-  const _ABModule(this._log);
+  final String _tag;
 
   @override
-  Future<void> setup(RackSetup rack) async {
-    rack.register<_ServiceA>(_ServiceA(_log));
-    rack.register<_ServiceB>(_ServiceB(_log));
+  void dispose() {
+    _log.add(_tag);
+    super.dispose();
   }
 }
 
@@ -60,7 +39,7 @@ Widget _wrap(Widget child) =>
 
 void main() {
   group('RackProvider', () {
-    testWidgets('shows loading widget while async module is initializing',
+    testWidgets('shows the loading widget while a module is initializing',
         (tester) async {
       final completer = Completer<void>();
 
@@ -84,12 +63,12 @@ void main() {
       expect(find.text('ready'), findsOneWidget);
     });
 
-    testWidgets('shows builder content after synchronous module completes',
+    testWidgets('shows the builder content once modules are initialized',
         (tester) async {
       await tester.pumpWidget(
         _wrap(
           RackProvider(
-            modules: [const _StringModule('hello')],
+            modules: [_ValueModule('hello')],
             builder: () => const Text('ready'),
           ),
         ),
@@ -99,12 +78,13 @@ void main() {
       expect(find.text('ready'), findsOneWidget);
     });
 
-    testWidgets('shows ErrorWidget when a module throws and no errorBuilder set',
+    testWidgets(
+        'shows an ErrorWidget when a module fails to init and no errorBuilder is set',
         (tester) async {
       await tester.pumpWidget(
         _wrap(
           RackProvider(
-            modules: [const _ThrowingModule()],
+            modules: [_ThrowingModule()],
             builder: () => const Text('ready'),
           ),
         ),
@@ -115,15 +95,16 @@ void main() {
       expect(find.byType(ErrorWidget), findsOneWidget);
     });
 
-    testWidgets('custom errorBuilder is called with the error when module throws',
+    testWidgets(
+        'calls the custom errorBuilder with the error when a module fails to init',
         (tester) async {
       Object? capturedError;
 
       await tester.pumpWidget(
         _wrap(
           RackProvider(
-            modules: [const _ThrowingModule()],
-            builder: () => const Text('ready'),
+            modules: [_ThrowingModule()],
+            builder: () => const SizedBox.shrink(),
             errorBuilder: (e) {
               capturedError = e;
               return const Text('error shown');
@@ -137,14 +118,13 @@ void main() {
       expect(find.text('error shown'), findsOneWidget);
     });
 
-    testWidgets('error message contains the module runtime type name',
-        (tester) async {
+    testWidgets('the init error names the module that failed', (tester) async {
       Object? capturedError;
 
       await tester.pumpWidget(
         _wrap(
           RackProvider(
-            modules: [const _ThrowingModule()],
+            modules: [_ThrowingModule()],
             builder: () => const SizedBox.shrink(),
             errorBuilder: (e) {
               capturedError = e;
@@ -158,36 +138,17 @@ void main() {
       expect(capturedError.toString(), contains('_ThrowingModule'));
     });
 
-    testWidgets(
-        'error message contains services registered before the failure',
-        (tester) async {
-      Object? capturedError;
-
-      await tester.pumpWidget(
-        _wrap(
-          RackProvider(
-            modules: [const _StringModule('first'), const _ThrowingModule()],
-            builder: () => const SizedBox.shrink(),
-            errorBuilder: (e) {
-              capturedError = e;
-              return const SizedBox.shrink();
-            },
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(capturedError.toString(), contains('String'));
-    });
-
-    testWidgets('services disposed in reverse registration order on unmount',
+    testWidgets('disposes modules in reverse list order on unmount',
         (tester) async {
       final log = <String>[];
 
       await tester.pumpWidget(
         _wrap(
           RackProvider(
-            modules: [_ABModule(log)],
+            modules: [
+              _DisposeOrderModule(log, 'first'),
+              _DisposeOrderModule(log, 'second'),
+            ],
             builder: () => const SizedBox.shrink(),
           ),
         ),
@@ -196,23 +157,22 @@ void main() {
 
       await tester.pumpWidget(_wrap(const SizedBox.shrink()));
 
-      expect(log, ['B', 'A']);
+      expect(log, ['second', 'first']);
     });
 
-    testWidgets(
-        'nested provider: widget inside nested provider can read parent services',
+    testWidgets('a widget in a nested provider can read a module from the parent',
         (tester) async {
       late String value;
 
       await tester.pumpWidget(
         _wrap(
           RackProvider(
-            modules: [const _StringModule('from-parent')],
+            modules: [_ValueModule('from-parent')],
             builder: () => RackProvider(
               modules: const [],
               builder: () => Builder(
                 builder: (ctx) {
-                  value = RackInherited.of(ctx).get<String>();
+                  value = RackInherited.of(ctx).module<_ValueModule>().value;
                   return const SizedBox.shrink();
                 },
               ),
@@ -225,20 +185,19 @@ void main() {
       expect(value, 'from-parent');
     });
 
-    testWidgets(
-        'nested provider: child service overrides parent service of same type',
+    testWidgets('a nested module shadows a parent module of the same type',
         (tester) async {
       late String value;
 
       await tester.pumpWidget(
         _wrap(
           RackProvider(
-            modules: [const _StringModule('parent')],
+            modules: [_ValueModule('parent')],
             builder: () => RackProvider(
-              modules: [const _StringModule('child')],
+              modules: [_ValueModule('child')],
               builder: () => Builder(
                 builder: (ctx) {
-                  value = RackInherited.of(ctx).get<String>();
+                  value = RackInherited.of(ctx).module<_ValueModule>().value;
                   return const SizedBox.shrink();
                 },
               ),
@@ -253,26 +212,34 @@ void main() {
   });
 
   group('RackInherited', () {
-    test('get asserts with message containing missing type name', () {
-      final inherited = RackInherited(
-        services: const {},
-        child: const SizedBox.shrink(),
+    test('module throws naming the missing type', () {
+      const inherited = RackInherited(
+        modules: <Type, RackModule>{},
+        child: SizedBox.shrink(),
       );
 
       expect(
-        () => inherited.get<String>(),
+        () => inherited.module<_ValueModule>(),
         throwsA(
-          isA<AssertionError>().having(
+          isA<StateError>().having(
             (e) => e.message,
             'message',
-            contains('String'),
+            contains('_ValueModule'),
           ),
         ),
       );
     });
 
-    testWidgets('of asserts with No RackProvider found when no provider in tree',
-        (tester) async {
+    test('moduleOrNull returns null for an unregistered module', () {
+      const inherited = RackInherited(
+        modules: <Type, RackModule>{},
+        child: SizedBox.shrink(),
+      );
+
+      expect(inherited.moduleOrNull<_ValueModule>(), isNull);
+    });
+
+    testWidgets('of asserts when no provider is in the tree', (tester) async {
       BuildContext? capturedCtx;
 
       await tester.pumpWidget(

@@ -1,16 +1,17 @@
 import 'package:flutter/widgets.dart';
 import '../core/rack_inherited.dart';
 import '../module/rack_module.dart';
-import '../module/rack_setup.dart';
 
 class RackProvider extends StatefulWidget {
+  /// The modules to provide, already instantiated. A module that depends on
+  /// another takes it as a constructor argument and must be listed after it.
   final List<RackModule> modules;
   final Widget Function() builder;
 
   /// Shown while modules are initializing. Defaults to an empty widget.
   final Widget loading;
 
-  /// Shown when a module's setup throws. Defaults to a plain error widget.
+  /// Shown when a module's init throws. Defaults to a plain error widget.
   final Widget Function(Object error)? errorBuilder;
 
   const RackProvider({
@@ -26,8 +27,6 @@ class RackProvider extends StatefulWidget {
 }
 
 class _RackProviderState extends State<RackProvider> {
-  final Map<Type, Object> _services = {};
-  final List<void Function()> _disposers = [];
   bool _initStarted = false;
   bool _initialized = false;
   Object? _initError;
@@ -43,18 +42,12 @@ class _RackProviderState extends State<RackProvider> {
 
   Future<void> _setup() async {
     try {
-      final parent = context.getInheritedWidgetOfExactType<RackInherited>();
-      final rackSetup = RackSetup(_services, _disposers, parent?.services);
-
       for (final module in widget.modules) {
         if (!mounted) return;
         try {
-          await module.setup(rackSetup);
+          await module.init();
         } catch (e) {
-          throw StateError(
-            '${module.runtimeType}.setup() failed: $e\n'
-            'Available: ${_services.keys.toList()}',
-          );
+          throw StateError('${module.runtimeType}.init() failed: $e');
         }
       }
       if (mounted) setState(() => _initialized = true);
@@ -65,8 +58,8 @@ class _RackProviderState extends State<RackProvider> {
 
   @override
   void dispose() {
-    for (final disposer in _disposers.reversed) {
-      disposer();
+    for (final module in widget.modules.reversed) {
+      module.dispose();
     }
     super.dispose();
   }
@@ -77,12 +70,14 @@ class _RackProviderState extends State<RackProvider> {
       return widget.errorBuilder?.call(_initError!) ?? ErrorWidget(_initError!);
     }
     if (!_initialized) return widget.loading;
+
     final parent = context.getInheritedWidgetOfExactType<RackInherited>();
-    final services = parent != null
-        ? {...parent.services, ..._services}
-        : _services;
+    final modules = <Type, RackModule>{
+      if (parent != null) ...parent.modules,
+      for (final module in widget.modules) module.runtimeType: module,
+    };
     return RackInherited(
-      services: services,
+      modules: modules,
       child: widget.builder(),
     );
   }
