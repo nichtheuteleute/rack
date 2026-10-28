@@ -23,13 +23,13 @@ class _ThrowingModule extends RackModule {
 }
 
 class _DisposeOrderModule extends RackModule {
-  _DisposeOrderModule(this._log, this._tag);
+  _DisposeOrderModule(this._log, this.tag);
   final List<String> _log;
-  final String _tag;
+  final String tag;
 
   @override
   void dispose() {
-    _log.add(_tag);
+    _log.add(tag);
     super.dispose();
   }
 }
@@ -158,6 +158,38 @@ void main() {
       await tester.pumpWidget(_wrap(const SizedBox.shrink()));
 
       expect(log, ['second', 'first']);
+    });
+
+    testWidgets('keeps its original modules when rebuilt with new instances',
+        (tester) async {
+      final log = <String>[];
+      late String value;
+
+      Widget provider(String tag) => _wrap(
+            RackProvider(
+              modules: [_DisposeOrderModule(log, tag)],
+              builder: () => Builder(
+                builder: (ctx) {
+                  final module =
+                      RackInherited.of(ctx).module<_DisposeOrderModule>();
+                  value = module.tag;
+                  return const SizedBox.shrink();
+                },
+              ),
+            ),
+          );
+
+      await tester.pumpWidget(provider('original'));
+      await tester.pumpAndSettle();
+
+      await tester.pumpWidget(provider('rebuilt'));
+      await tester.pumpAndSettle();
+
+      expect(value, 'original');
+
+      await tester.pumpWidget(_wrap(const SizedBox.shrink()));
+
+      expect(log, ['original']);
     });
 
     testWidgets('a widget in a nested provider can read a module from the parent',

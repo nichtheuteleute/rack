@@ -5,6 +5,10 @@ import '../module/rack_module.dart';
 class RackProvider extends StatefulWidget {
   /// The modules to provide, already instantiated. A module that depends on
   /// another takes it as a constructor argument and must be listed after it.
+  ///
+  /// Read once when the provider mounts: the provider owns these instances
+  /// and disposes them on unmount. Modules passed on a later rebuild are
+  /// ignored.
   final List<RackModule> modules;
   final Widget Function() builder;
 
@@ -27,6 +31,7 @@ class RackProvider extends StatefulWidget {
 }
 
 class _RackProviderState extends State<RackProvider> {
+  late final List<RackModule> _modules = List.unmodifiable(widget.modules);
   bool _initStarted = false;
   bool _initialized = false;
   Object? _initError;
@@ -42,7 +47,7 @@ class _RackProviderState extends State<RackProvider> {
 
   Future<void> _setup() async {
     try {
-      for (final module in widget.modules) {
+      for (final module in _modules) {
         if (!mounted) return;
         try {
           await module.init();
@@ -58,7 +63,7 @@ class _RackProviderState extends State<RackProvider> {
 
   @override
   void dispose() {
-    for (final module in widget.modules.reversed) {
+    for (final module in _modules.reversed) {
       module.dispose();
     }
     super.dispose();
@@ -74,7 +79,7 @@ class _RackProviderState extends State<RackProvider> {
     final parent = context.getInheritedWidgetOfExactType<RackInherited>();
     final modules = <Type, RackModule>{
       if (parent != null) ...parent.modules,
-      for (final module in widget.modules) module.runtimeType: module,
+      for (final module in _modules) module.runtimeType: module,
     };
     return RackInherited(
       modules: modules,
