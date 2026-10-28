@@ -1,5 +1,7 @@
 # ADR 001: Live-Lookup statt Snapshot im init()-Rack
 
+**Status:** Superseded durch [ADR 002](002-typed-modules.md). `Rack.fromLookup`, `registerInstance` und die `_services`-Map existieren nicht mehr; die hier beschriebene Frage stellt sich mit typisierten Modulen nicht mehr.
+
 ## Context
 
 `RackProvider._setup()` baut einen `Rack`-Objekt und übergibt es an `module.init()`. Module können darin Services lesen via `rack.read<T>()`.
