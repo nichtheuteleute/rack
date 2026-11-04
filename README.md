@@ -6,7 +6,19 @@ Rack does two things:
 1. **Groups services into modules** (stores, sources, clients) that are created once, optionally initialized async at app start, and disposed together.
 2. **Binds controllers to screens** — each screen gets its own controller instance, created and disposed automatically.
 
-State management is not Rack's job. `RackWidget` builds inside a [signals](https://pub.dev/packages/signals_flutter) `Watch`, so reading a signal in `buildContent` rebuilds the widget automatically. Your stores can still use streams or plain Dart.
+State management is not Rack's job. `RackWidget` builds inside a [signals](https://pub.dev/packages/signals_flutter) `SignalBuilder`, so reading a signal in `buildContent` rebuilds the widget automatically. Your stores can still use streams or plain Dart.
+
+## Installation
+
+```sh
+flutter pub add rack signals_flutter
+```
+
+```dart
+import 'package:rack/rack.dart';
+```
+
+`signals_flutter` is Rack's only dependency; add it yourself if your stores use signals. A runnable app is in [`example/`](example/lib/main.dart).
 
 ---
 
@@ -278,5 +290,9 @@ Rack controllers are plain Dart objects. A button tap is a method call. If you n
 
 ## Decisions
 
-- [ADR 001: Live-Lookup statt Snapshot im init()-Rack](docs/decisions/001-live-lookup-in-init.md) — superseded
-- [ADR 002: Module als typisierte Container](docs/decisions/002-typed-modules.md)
+- [ADR 001: Live-Lookup statt Snapshot im init()-Rack](doc/decisions/001-live-lookup-in-init.md) — superseded
+- [ADR 002: Module als typisierte Container](doc/decisions/002-typed-modules.md)
+
+## License
+
+MIT — see [LICENSE](LICENSE).

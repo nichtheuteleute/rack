@@ -2,6 +2,15 @@ import 'package:flutter/widgets.dart';
 import '../core/rack_inherited.dart';
 import '../module/rack_module.dart';
 
+/// Composition root: initializes [modules] and provides them to the
+/// subtree built by [builder].
+///
+/// Each module's `init()` is awaited in list order. Until all of them have
+/// completed, [loading] is shown; if one throws, [errorBuilder] is shown.
+/// The modules are disposed in reverse order when the provider unmounts.
+///
+/// Providers can be nested: a nested provider sees its parent's modules, and
+/// its own modules replace parent modules of the same type.
 class RackProvider extends StatefulWidget {
   /// The modules to provide, already instantiated. A module that depends on
   /// another takes it as a constructor argument and must be listed after it.
@@ -10,6 +19,8 @@ class RackProvider extends StatefulWidget {
   /// and disposes them on unmount. Modules passed on a later rebuild are
   /// ignored.
   final List<RackModule> modules;
+
+  /// Builds the subtree once all modules are initialized.
   final Widget Function() builder;
 
   /// Shown while modules are initializing. Defaults to an empty widget.
@@ -18,6 +29,7 @@ class RackProvider extends StatefulWidget {
   /// Shown when a module's init throws. Defaults to a plain error widget.
   final Widget Function(Object error)? errorBuilder;
 
+  /// Creates a provider for [modules].
   const RackProvider({
     super.key,
     required this.modules,

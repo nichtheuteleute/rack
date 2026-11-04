@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:morph_md_rack/rack.dart';
+import 'package:rack/rack.dart';
 
 class _ValueModule extends RackModule {
   _ValueModule(this.value);
@@ -192,7 +192,8 @@ void main() {
       expect(log, ['original']);
     });
 
-    testWidgets('a widget in a nested provider can read a module from the parent',
+    testWidgets(
+        'a widget in a nested provider can read a module from the parent',
         (tester) async {
       late String value;
 
