@@ -31,6 +31,11 @@ class CounterStore implements Disposable {
     _storage.save(count.value);
   }
 
+  void reset() {
+    count.value = 0;
+    _storage.save(0);
+  }
+
   @override
   void dispose() => count.dispose();
 }
@@ -94,7 +99,10 @@ class CounterController {
   final CounterStore _store;
 
   int get count => _store.count.value;
+  bool get canReset => _store.count.value > 0;
+
   void increment() => _store.increment();
+  void reset() => _store.reset();
 }
 
 class CounterScreen extends RackWidget<CounterController> {
@@ -107,7 +115,10 @@ class CounterScreen extends RackWidget<CounterController> {
   @override
   Widget buildContent(BuildContext context, CounterController controller) {
     return Scaffold(
-      appBar: AppBar(title: const Text('rack example')),
+      appBar: AppBar(
+        title: const Text('rack example'),
+        actions: [_ResetButton(controller: controller)],
+      ),
       body: Center(
         // Rack does not rebuild on state changes by itself. Wrap exactly the
         // part that reads the signal, so only that part rebuilds.
@@ -122,6 +133,22 @@ class CounterScreen extends RackWidget<CounterController> {
         onPressed: controller.increment,
         child: const Icon(Icons.add),
       ),
+    );
+  }
+}
+
+/// A child widget that reads a signal: extending `SignalWidget` instead of
+/// `StatelessWidget` makes it rebuild on its own when the signal changes.
+class _ResetButton extends SignalWidget {
+  const _ResetButton({required this.controller});
+  final CounterController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: 'Reset',
+      icon: const Icon(Icons.restart_alt),
+      onPressed: controller.canReset ? controller.reset : null,
     );
   }
 }

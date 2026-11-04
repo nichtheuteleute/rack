@@ -6,7 +6,7 @@ Rack does two things:
 1. **Groups services into modules** (stores, sources, clients) that are created once, optionally initialized async at app start, and disposed together.
 2. **Binds controllers to screens** — each screen gets its own controller instance, created and disposed automatically.
 
-State management is not Rack's job, and Rack has no dependencies besides Flutter. Your stores can use [signals](https://pub.dev/packages/signals_flutter), `ValueNotifier`, streams or plain Dart — wrap the part of the UI that reads them in the matching builder (`SignalBuilder`, `ValueListenableBuilder`, `StreamBuilder`). The examples below use signals.
+State management is not Rack's job, and Rack has no dependencies besides Flutter. Your stores can use [signals](https://pub.dev/packages/signals_flutter), `ValueNotifier`, streams or plain Dart — wrap the part of the UI that reads them in the matching builder (`SignalBuilder`, `ValueListenableBuilder`, `StreamBuilder`). The examples below use signals; see [Using Rack with signals](#using-rack-with-signals) for the recommended setup.
 
 ## Installation
 
@@ -167,7 +167,7 @@ class AppSidebar extends RackWidget<SidebarController> {
 
 `create()` is called once when the widget mounts. If the controller implements `Disposable`, `dispose()` is called when it unmounts. The controller is never recreated on rebuild.
 
-`buildContent` is a plain build method — Rack does not track state reads. Wrap the parts that read reactive state in a builder, as close to the read as possible, so only they rebuild.
+`buildContent` is a plain build method — Rack does not track state reads. Wrap the parts that read reactive state in a builder, as close to the read as possible, so only they rebuild. See [Using Rack with signals](#using-rack-with-signals).
 
 `rack.module<T>()` throws a `StateError` naming the type if no such module is provided. Use `rack.moduleOrNull<T>()` for optional modules.
 
@@ -261,6 +261,67 @@ RackProvider(
 
 ---
 
+## Using Rack with signals
+
+Rack and [signals](https://pub.dev/packages/signals_flutter) are a good fit: modules own the stores, stores expose signals, controllers change them. Rack itself does not depend on signals, so you pick the version and decide where the UI reacts. The recommendations below need `signals_flutter` 7 or later.
+
+**The pitfall:** a signal read in a plain `build` or `buildContent` is not tracked. The UI shows the value once and then silently stays stale — no error, no lint. Every signal read in the UI must happen inside one of the following.
+
+**1. In a screen: `SignalBuilder` around the part that reads.** Keep it small — only the wrapped part rebuilds.
+
+```dart
+@override
+Widget buildContent(BuildContext context, CounterController controller) {
+  return Scaffold(
+    appBar: AppBar(title: const Text('Counter')), // never rebuilds
+    body: SignalBuilder(
+      builder: (context) => Text('${controller.count.value}'),
+    ),
+  );
+}
+```
+
+**2. In child widgets: extend `SignalWidget` instead of `StatelessWidget`.** Signals read in its `build` are tracked, and only that widget rebuilds. Use `SignalStatefulWidget` for stateful ones.
+
+```dart
+class _FilterChip extends SignalWidget {
+  const _FilterChip({required this.controller});
+  final NotesController controller;
+
+  @override
+  Widget build(BuildContext context) =>
+      Text(controller.filter.value.name); // tracked
+}
+```
+
+Prefer these two over the `Watch` widget and `.watch(context)`, which are deprecated in signals 7.
+
+**3. Optional: make every screen reactive by default.** If you'd rather not think about it per screen, define a base class once in your app and use it instead of `RackWidget`:
+
+```dart
+abstract class SignalRackWidget<C extends Object> extends RackWidget<C> {
+  const SignalRackWidget({super.key});
+
+  Widget buildReactive(BuildContext context, C controller);
+
+  @override
+  Widget buildContent(BuildContext context, C controller) =>
+      SignalBuilder(builder: (context) => buildReactive(context, controller));
+}
+```
+
+This tracks reads directly in `buildReactive` and rebuilds the whole screen on every change. Child widgets still need rule 2.
+
+**4. Catch forgotten wraps with a test.** A widget test that changes a signal and expects the new value on screen fails if a read is not tracked:
+
+```dart
+controller.count.value = 1;
+await tester.pump();
+expect(find.text('1'), findsOneWidget);
+```
+
+---
+
 ## Compared to the alternatives
 
 ### vs. Provider
@@ -290,6 +351,7 @@ Rack controllers are plain Dart objects. A button tap is a method call. If you n
 - **Create modules once.** Pass instances that outlive rebuilds — never construct them inline in a `build` method.
 - **No business logic in widgets.** Widgets call controller methods; controllers call stores. Never the other way.
 - **Controllers get stores, not other controllers.** Shared state belongs in a store.
+- **Every reactive read in the UI is wrapped.** Read signals (or notifiers, streams) only inside a builder or a reactive widget like `SignalWidget` — Rack does not track reads, so an unwrapped read never rebuilds.
 - **Wrap module services in `use()` and implement `Disposable` on anything that needs cleanup.** Module services are disposed in reverse creation order, modules in reverse list order, controllers when their widget unmounts.
 
 ## Decisions
