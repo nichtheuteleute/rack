@@ -1,5 +1,4 @@
 import 'package:flutter/widgets.dart';
-import 'package:signals_flutter/signals_flutter.dart';
 import '../module/disposable.dart';
 import '../module/rack.dart';
 
@@ -9,8 +8,9 @@ import '../module/rack.dart';
 /// kept across rebuilds. If it implements [Disposable], it is disposed when
 /// the widget unmounts.
 ///
-/// [buildContent] runs inside a signals `SignalBuilder`: reading a signal there
-/// rebuilds the widget when the signal changes.
+/// Rack does not decide how the UI reacts to state changes. Wrap the parts of
+/// [buildContent] that read reactive state in the matching builder — e.g.
+/// `SignalBuilder` for signals, `ValueListenableBuilder` or `StreamBuilder`.
 abstract class RackWidget<C extends Object> extends StatefulWidget {
   /// Creates a widget that owns a controller of type [C].
   const RackWidget({super.key});
@@ -20,9 +20,8 @@ abstract class RackWidget<C extends Object> extends StatefulWidget {
   /// Use [rack] to look up the modules the controller needs.
   C create(Rack rack);
 
-  /// Builds the widget's UI from [controller].
-  ///
-  /// Signals read here are tracked and trigger a rebuild when they change.
+  /// Builds the widget's UI from [controller]. Called on every build; the
+  /// controller stays the same.
   Widget buildContent(BuildContext context, C controller);
 
   @override
@@ -47,8 +46,6 @@ class _RackWidgetState<C extends Object> extends State<RackWidget<C>> {
 
   @override
   Widget build(BuildContext context) {
-    return SignalBuilder(
-      builder: (context) => widget.buildContent(context, _controller!),
-    );
+    return widget.buildContent(context, _controller!);
   }
 }

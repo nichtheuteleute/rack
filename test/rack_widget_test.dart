@@ -1,7 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rack/rack.dart';
-import 'package:signals_flutter/signals_flutter.dart';
 
 class _CountingWidget extends RackWidget<Object> {
   final void Function() onCreate;
@@ -75,26 +74,6 @@ class _ValueModule extends RackModule {
   final String value;
 }
 
-class _CounterController {
-  final count = signal(0);
-}
-
-class _CounterWidget extends RackWidget<_CounterController> {
-  const _CounterWidget({required this.onCreate});
-  final void Function(_CounterController) onCreate;
-
-  @override
-  _CounterController create(Rack rack) {
-    final controller = _CounterController();
-    onCreate(controller);
-    return controller;
-  }
-
-  @override
-  Widget buildContent(BuildContext context, _CounterController controller) =>
-      Text('count: ${controller.count.value}');
-}
-
 Widget _wrap(Widget child) =>
     Directionality(textDirection: TextDirection.ltr, child: child);
 
@@ -157,20 +136,6 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('rack-value'), findsOneWidget);
-    });
-
-    testWidgets('rebuilds when a signal read in buildContent changes',
-        (tester) async {
-      late _CounterController controller;
-      await tester.pumpWidget(
-        _wrap(_CounterWidget(onCreate: (c) => controller = c)),
-      );
-      expect(find.text('count: 0'), findsOneWidget);
-
-      controller.count.value = 1;
-      await tester.pump();
-
-      expect(find.text('count: 1'), findsOneWidget);
     });
   });
 }

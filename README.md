@@ -6,19 +6,19 @@ Rack does two things:
 1. **Groups services into modules** (stores, sources, clients) that are created once, optionally initialized async at app start, and disposed together.
 2. **Binds controllers to screens** — each screen gets its own controller instance, created and disposed automatically.
 
-State management is not Rack's job. `RackWidget` builds inside a [signals](https://pub.dev/packages/signals_flutter) `SignalBuilder`, so reading a signal in `buildContent` rebuilds the widget automatically. Your stores can still use streams or plain Dart.
+State management is not Rack's job, and Rack has no dependencies besides Flutter. Your stores can use [signals](https://pub.dev/packages/signals_flutter), `ValueNotifier`, streams or plain Dart — wrap the part of the UI that reads them in the matching builder (`SignalBuilder`, `ValueListenableBuilder`, `StreamBuilder`). The examples below use signals.
 
 ## Installation
 
 ```sh
-flutter pub add rack signals_flutter
+flutter pub add rack
 ```
 
 ```dart
 import 'package:rack/rack.dart';
 ```
 
-`signals_flutter` is Rack's only dependency; add it yourself if your stores use signals. A runnable app is in [`example/`](example/lib/main.dart).
+A runnable app (using signals) is in [`example/`](example/lib/main.dart).
 
 ---
 
@@ -155,15 +155,19 @@ class AppSidebar extends RackWidget<SidebarController> {
 
   @override
   Widget buildContent(BuildContext context, SidebarController controller) {
-    return FileTree(
-      files: controller.filesStore.fileTree.value, // signal read → auto rebuild
-      onTap: controller.openFile,
+    return SignalBuilder(
+      builder: (context) => FileTree(
+        files: controller.filesStore.fileTree.value, // signal read → rebuild
+        onTap: controller.openFile,
+      ),
     );
   }
 }
 ```
 
 `create()` is called once when the widget mounts. If the controller implements `Disposable`, `dispose()` is called when it unmounts. The controller is never recreated on rebuild.
+
+`buildContent` is a plain build method — Rack does not track state reads. Wrap the parts that read reactive state in a builder, as close to the read as possible, so only they rebuild.
 
 `rack.module<T>()` throws a `StateError` naming the type if no such module is provided. Use `rack.moduleOrNull<T>()` for optional modules.
 
@@ -172,7 +176,7 @@ class AppSidebar extends RackWidget<SidebarController> {
 ### 6. Events stay in the controller — no callbacks up the tree
 
 ```
-Widget → calls controller method → controller calls store → store updates signal → Widget rebuilds
+Widget → calls controller method → controller calls store → store updates signal → SignalBuilder rebuilds
 ```
 
 No `onTap: (file) => setState(...)` bubbling up through three widget layers. No callbacks passed as constructor arguments through the tree. The controller is the only place that knows about stores.
@@ -292,6 +296,7 @@ Rack controllers are plain Dart objects. A button tap is a method call. If you n
 
 - [ADR 001: Live-Lookup statt Snapshot im init()-Rack](doc/decisions/001-live-lookup-in-init.md) — superseded
 - [ADR 002: Module als typisierte Container](doc/decisions/002-typed-modules.md)
+- [ADR 003: Keine Abhängigkeit zu signals](doc/decisions/003-no-signals-dependency.md)
 
 ## License
 

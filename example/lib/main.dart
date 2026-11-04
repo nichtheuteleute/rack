@@ -109,10 +109,13 @@ class CounterScreen extends RackWidget<CounterController> {
     return Scaffold(
       appBar: AppBar(title: const Text('rack example')),
       body: Center(
-        // Reading the signal here rebuilds the screen when it changes.
-        child: Text(
-          '${controller.count}',
-          style: Theme.of(context).textTheme.displayMedium,
+        // Rack does not rebuild on state changes by itself. Wrap exactly the
+        // part that reads the signal, so only that part rebuilds.
+        child: SignalBuilder(
+          builder: (context) => Text(
+            '${controller.count}',
+            style: Theme.of(context).textTheme.displayMedium,
+          ),
         ),
       ),
       floatingActionButton: FloatingActionButton(
