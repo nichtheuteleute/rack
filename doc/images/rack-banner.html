@@ -50,7 +50,7 @@
   <div class="card">
     <div class="head"><span class="num">1</span><span class="label">MODULE</span><span class="hint">holds your stores, registered once at the root</span></div>
 <pre><span class="k">class</span> <span class="t">AppModule</span> <span class="k">extends</span> <span class="r">RackModule</span> {
-  <span class="k">late final</span> <span class="s">notes</span> = <span class="r">use</span>(<span class="t">NotesStore</span>());
+  <span class="k">late final</span> <span class="s">notesStore</span> = <span class="r">use</span>(<span class="t">NotesStore</span>());
 }
 
 <span class="k">void</span> <span class="s">main</span>() =&gt; <span class="s">runApp</span>(<span class="r">RackProvider</span>(
@@ -62,8 +62,8 @@
   <div class="card">
     <div class="head"><span class="num">2</span><span class="label">CONTROLLER</span><span class="hint">plain Dart, one per screen</span></div>
 <pre><span class="k">class</span> <span class="t">NotesController</span> {
-  <span class="t">NotesController</span>(<span class="k">this</span>.<span class="s">notes</span>);
-  <span class="k">final</span> <span class="t">NotesStore</span> <span class="s">notes</span>;
+  <span class="t">NotesController</span>(<span class="k">this</span>.<span class="s">notesStore</span>);
+  <span class="k">final</span> <span class="t">NotesStore</span> <span class="s">notesStore</span>;
 }</pre>
   </div>
   <div class="link"></div>
@@ -71,7 +71,7 @@
     <div class="head"><span class="num">3</span><span class="label">SCREEN</span><span class="hint">creates and disposes its controller</span></div>
 <pre><span class="k">class</span> <span class="t">NotesScreen</span> <span class="k">extends</span> <span class="r">RackWidget</span>&lt;<span class="t">NotesController</span>&gt; {
   <span class="t">NotesController</span> <span class="s">create</span>(<span class="t">Rack</span> rack) =&gt;
-      <span class="t">NotesController</span>(<span class="r">rack.module</span>&lt;<span class="t">AppModule</span>&gt;().<span class="s">notes</span>);
+      <span class="t">NotesController</span>(<span class="r">rack.module</span>&lt;<span class="t">AppModule</span>&gt;().<span class="s">notesStore</span>);
   <span class="t">Widget</span> <span class="s">buildContent</span>(context, controller) =&gt; <span class="c">…</span>;
 }</pre>
   </div>

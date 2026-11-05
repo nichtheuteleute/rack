@@ -63,10 +63,10 @@
 <span class="k">final</span> <span class="s">auth</span>     = <span class="t">AuthModule</span>(<span class="s">settings</span>);
 <span class="k">final</span> <span class="s">notes</span>    = <span class="t">NotesModule</span>(<span class="s">settings</span>, <span class="s">auth</span>);
 <span class="k">final</span> <span class="s">sync</span>     = <span class="t">SyncModule</span>(<span class="s">notes</span>, <span class="s">auth</span>);
+<span class="k">final</span> <span class="s">plugin</span>   = <span class="s">withPlugins</span> ? <span class="t">PluginModule</span>() : <span class="k">null</span>; <span class="c">// optional</span>
 
 <span class="s">runApp</span>(<span class="r">RackProvider</span>(
-  <span class="s">modules</span>: [<span class="s">sync</span>, <span class="s">notes</span>, <span class="s">auth</span>, <span class="s">settings</span>, <span class="c">// any order</span>
-    <span class="k">if</span> (<span class="s">flags</span>.<span class="s">premium</span>) <span class="t">PremiumModule</span>()],    <span class="c">// optional</span>
+  <span class="s">modules</span>: [<span class="s">sync</span>, <span class="s">notes</span>, <span class="s">auth</span>, <span class="s">settings</span>, <span class="r">?plugin</span>], <span class="c">// any order</span>
   <span class="s">builder</span>: () =&gt; <span class="k">const</span> <span class="t">App</span>(),
 ));</pre>
   </div>
@@ -79,7 +79,7 @@
   </div>
   <div class="opt">
     <span class="olabel">OPTIONAL</span>
-<pre><span class="k">final</span> <span class="s">premium</span> = <span class="r">rack.moduleOrNull</span>&lt;<span class="t">PremiumModule</span>&gt;();</pre>
+<pre><span class="k">final</span> <span class="s">plugin</span> = <span class="r">rack.moduleOrNull</span>&lt;<span class="t">PluginModule</span>&gt;();</pre>
   </div>
   <div class="err">
     <span class="x">!</span>
