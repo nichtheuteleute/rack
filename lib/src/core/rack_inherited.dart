@@ -4,8 +4,10 @@ import '../module/rack_module.dart';
 /// Holds the modules available to the widget subtree, keyed by each module's
 /// runtime type. Nested providers merge their parent's modules in.
 class RackInherited extends InheritedWidget {
+  /// The provided modules, keyed by runtime type.
   final Map<Type, RackModule> modules;
 
+  /// Creates the inherited widget. Usually created by `RackProvider`.
   const RackInherited({
     super.key,
     required this.modules,
@@ -25,6 +27,7 @@ class RackInherited extends InheritedWidget {
   /// the caller decides how to handle its absence.
   T? moduleOrNull<T extends RackModule>() => modules[T] as T?;
 
+  /// Returns the nearest [RackInherited] above [context].
   static RackInherited of(BuildContext context) {
     final inherited = context.getInheritedWidgetOfExactType<RackInherited>();
     assert(inherited != null, 'No RackProvider found in the widget tree');

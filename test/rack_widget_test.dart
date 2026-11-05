@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:morph_md_rack/rack.dart';
+import 'package:rack/rack.dart';
 
 class _CountingWidget extends RackWidget<Object> {
   final void Function() onCreate;

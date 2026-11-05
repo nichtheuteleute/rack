@@ -6,6 +6,7 @@ import 'rack_module.dart';
 class Rack {
   final BuildContext _context;
 
+  /// Creates a lookup for the modules provided above [context].
   Rack(BuildContext context) : _context = context;
 
   /// Returns the module of type [T], or throws if it is not registered.

@@ -1,0 +1,90 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+  html,body{margin:0;padding:0}
+  body{width:1280px;height:640px;overflow:hidden;position:relative;color:#e8eefc;
+    background:
+      radial-gradient(900px 520px at 82% 30%, rgba(84,197,248,.14), transparent 60%),
+      radial-gradient(700px 420px at 8% 100%, rgba(94,234,212,.10), transparent 60%),
+      linear-gradient(160deg,#0a1020 0%,#0e1830 55%,#0b1326 100%);
+    font-family:-apple-system,"SF Pro Display","Helvetica Neue",Arial,sans-serif}
+  .dots{position:absolute;inset:0;
+    background-image:radial-gradient(rgba(148,175,230,.13) 1px, transparent 1.4px);
+    background-size:28px 28px;mask-image:linear-gradient(90deg,#000 0%,rgba(0,0,0,.3) 55%,transparent 100%)}
+  .left{position:absolute;left:84px;top:64px;width:520px}
+  .mark{font-size:64px;font-weight:800;letter-spacing:-2.5px;line-height:1;
+    background:linear-gradient(180deg,#ffffff 0%,#cfe6ff 100%);-webkit-background-clip:text;color:transparent}
+  .mark span{background:linear-gradient(90deg,#54c5f8,#5eead4);-webkit-background-clip:text;color:transparent}
+  h1{margin:26px 0 0;font-size:46px;line-height:1.1;font-weight:750;letter-spacing:-1px;color:#fff}
+  h1 em{font-style:normal;background:linear-gradient(90deg,#54c5f8,#5eead4);-webkit-background-clip:text;color:transparent}
+  ul{list-style:none;margin:28px 0 0;padding:0}
+  li{display:flex;gap:14px;margin-bottom:16px;font-size:19px;line-height:1.35;color:#b9c8e6}
+  li b{color:#fff;font-weight:650}
+  li code{font-family:"SF Mono",Menlo,monospace;font-size:16px;color:#5eead4}
+  .tick{flex:none;width:26px;height:26px;border-radius:50%;background:rgba(94,234,212,.14);border:1.5px solid rgba(94,234,212,.6);
+    color:#5eead4;font-size:15px;font-weight:800;display:flex;align-items:center;justify-content:center;margin-top:1px}
+
+  .right{position:absolute;right:52px;top:30px;width:580px}
+  .card{background:linear-gradient(180deg,#1c2c4f,#152342);border:1px solid #2f4778;border-radius:14px;
+    box-shadow:0 14px 34px rgba(0,0,0,.40);padding:14px 20px 16px}
+  pre{margin:0;font-family:"SF Mono",Menlo,monospace;font-size:14px;line-height:1.55;color:#c3cfe8}
+  .k{color:#c792ea}.t{color:#7fb6ff}.s{color:#e8eefc}.c{color:#5d7096}.r{color:#5eead4;font-weight:600}
+  .order{margin-top:16px;display:flex;align-items:center;gap:10px}
+  .olabel{font-size:12px;font-weight:700;letter-spacing:1.4px;color:#9fb3d9;margin-right:6px}
+  .node{display:flex;align-items:center;gap:8px;padding:8px 13px;border-radius:10px;background:#1a2a4b;border:1px solid #33508a;
+    font-family:"SF Mono",Menlo,monospace;font-size:14px;color:#e8eefc}
+  .n{font-family:-apple-system,Helvetica Neue,Arial;font-size:11px;font-weight:800;color:#0b1326;background:#5eead4;border-radius:999px;
+    width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center}
+  .arrow{color:#5eead4;font-size:18px}
+  .opt{margin-top:16px;padding:11px 16px;border-radius:12px;background:#152342;border:1px solid #2f4778;display:flex;align-items:center;gap:12px}
+  .opt pre{font-size:13.5px}
+  .err{margin-top:16px;display:flex;gap:12px;align-items:flex-start;padding:12px 16px;border-radius:12px;
+    background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.40)}
+  .x{flex:none;width:22px;height:22px;border-radius:50%;background:#f87171;color:#1a0b0b;font-weight:900;font-size:13px;
+    display:flex;align-items:center;justify-content:center;margin-top:1px}
+  .err pre{font-size:13px;line-height:1.5;color:#fbc4c4;white-space:pre-wrap}
+  .err .h{font-family:-apple-system,Helvetica Neue,Arial;font-size:12px;font-weight:700;letter-spacing:1.2px;color:#f8a5a5;margin-bottom:4px}
+</style></head><body>
+<div class="dots"></div>
+<div class="left">
+  <div class="mark">rack<span>.</span></div>
+  <h1>Shines with<br><em>many modules.</em></h1>
+  <ul>
+    <li><span class="tick">✓</span><span><b>Dependencies are constructor arguments</b> — the compiler checks them.</span></li>
+    <li><span class="tick">✓</span><span><b>Started in creation order</b> — list modules in any order, dependencies come first.</span></li>
+    <li><span class="tick">✓</span><span><b>Optional modules</b> — register them conditionally, read them with <code>moduleOrNull</code>.</span></li>
+    <li><span class="tick">✓</span><span><b>Forgot one?</b> The app stops at startup and names the module, instead of running on unloaded data.</span></li>
+  </ul>
+</div>
+
+<div class="right">
+  <div class="card">
+<pre><span class="k">final</span> <span class="s">settings</span> = <span class="t">SettingsModule</span>();
+<span class="k">final</span> <span class="s">auth</span>     = <span class="t">AuthModule</span>(<span class="s">settings</span>);
+<span class="k">final</span> <span class="s">notes</span>    = <span class="t">NotesModule</span>(<span class="s">settings</span>, <span class="s">auth</span>);
+<span class="k">final</span> <span class="s">sync</span>     = <span class="t">SyncModule</span>(<span class="s">notes</span>, <span class="s">auth</span>);
+<span class="k">final</span> <span class="s">plugin</span>   = <span class="s">withPlugins</span> ? <span class="t">PluginModule</span>() : <span class="k">null</span>; <span class="c">// optional</span>
+
+<span class="s">runApp</span>(<span class="r">RackProvider</span>(
+  <span class="s">modules</span>: [<span class="s">sync</span>, <span class="s">notes</span>, <span class="s">auth</span>, <span class="s">settings</span>, <span class="r">?plugin</span>], <span class="c">// any order</span>
+  <span class="s">builder</span>: () =&gt; <span class="k">const</span> <span class="t">App</span>(),
+));</pre>
+  </div>
+  <div class="order">
+    <span class="olabel">STARTS</span>
+    <span class="node"><span class="n">1</span>Settings</span><span class="arrow">→</span>
+    <span class="node"><span class="n">2</span>Auth</span><span class="arrow">→</span>
+    <span class="node"><span class="n">3</span>Notes</span><span class="arrow">→</span>
+    <span class="node"><span class="n">4</span>Sync</span>
+  </div>
+  <div class="opt">
+    <span class="olabel">OPTIONAL</span>
+<pre><span class="k">final</span> <span class="s">plugin</span> = <span class="r">rack.moduleOrNull</span>&lt;<span class="t">PluginModule</span>&gt;();</pre>
+  </div>
+  <div class="err">
+    <span class="x">!</span>
+    <div><div class="h">FORGOT  auth  IN THE LIST?</div>
+<pre>NotesModule.init() failed: AuthModule is used, but no RackProvider provides it, so its init() never ran. Add it to RackProvider.modules.</pre></div>
+  </div>
+</div>
+</body></html>

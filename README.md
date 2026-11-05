@@ -1,12 +1,34 @@
 # Rack
 
-Lightweight DI + controller lifecycle for Flutter. No code generation, no ChangeNotifier, no boilerplate.
+![rack — small, explicit dependency injection and controller lifecycle for Flutter](https://raw.githubusercontent.com/nichtheuteleute/rack/main/doc/images/rack-banner.png)
+
+**Small, explicit dependency injection and controller lifecycle for Flutter.** No code generation, no dependencies.
 
 Rack does two things:
-1. **Registers and initializes services** (stores, sources, clients) once at app start via modules.
+1. **Groups services into modules** (stores, sources, clients) that are created once, optionally initialized async at app start, and disposed together.
 2. **Binds controllers to screens** — each screen gets its own controller instance, created and disposed automatically.
 
-State management is not Rack's job. Rack works with signals, streams, or plain Dart — whatever you use.
+State management is not Rack's job, and Rack has no dependencies besides Flutter. Your stores can use [signals](https://pub.dev/packages/signals_flutter), `ValueNotifier`, streams or plain Dart — wrap the part of the UI that reads them in the matching builder (`SignalBuilder`, `ValueListenableBuilder`, `StreamBuilder`). The examples below use signals; see [Using Rack with signals](#using-rack-with-signals) for the recommended setup.
+
+## Why Rack
+
+**Small.** About 220 lines of code in six classes — roughly 3,000 tokens. You, a reviewer or an AI coding agent can read the whole library in a few minutes instead of guessing how it works. (For comparison: flutter_bloc + bloc ≈ 1,100 lines, get_it ≈ 2,300, provider ≈ 2,500, flutter_riverpod + riverpod ≈ 9,500.) In our [agent benchmark](tool/agent_bench/RESULTS.md), coding agents solved every rack task without ever opening rack's documentation.
+
+**Explicit.** A module's dependencies are its constructor arguments — what it needs is written where it is declared, and a module never looks up its dependencies at runtime. The initialization order follows from that: a dependency has to exist before it can be passed, so it is always initialized first. Mistakes are loud: a missing dependency does not compile, and a module that is used but not provided stops the app at startup with its name. When we removed each wiring step from the same app built with rack, Riverpod, Bloc and provider, rack never failed silently — Bloc and provider compiled a forgotten link between two features and showed stale data ([details](tool/wiring_check/RESULTS.md)).
+
+**No code generation, no dependencies.** Only Flutter. No `build_runner`, no generated files to keep in sync, no waiting for a build step after a change, no version conflicts with the state library you choose — and negligible runtime overhead: about 0.8 µs to mount a screen with its controller, less than the usual provider pattern ([benchmark](tool/benchmark/README.md)).
+
+## Installation
+
+```sh
+flutter pub add rack
+```
+
+```dart
+import 'package:rack/rack.dart';
+```
+
+A runnable app (using signals) is in [`example/`](example/lib/main.dart).
 
 ---
 
@@ -14,93 +36,111 @@ State management is not Rack's job. Rack works with signals, streams, or plain D
 
 | Piece | What it does |
 |---|---|
-| `RackModule` | Groups related service registrations. Supports async `init()`. |
-| `RackProvider` | Composition root. Mounts at the top of the widget tree. |
+| `RackModule` | A typed bag of services that share a lifecycle. Supports async `init()`. |
+| `use(...)` | Registers a module field for disposal. Combine with `late final` for lazy, single-instance services. |
+| `RackProvider` | Composition root. Initializes its modules, then exposes them to the subtree. |
 | `RackWidget<C>` | Base class for screens/views that need a controller. |
-| `Rack` | Passed to `create()` and `init()` — use it to read registered services. |
+| `Rack` | Passed to `create()` — use `rack.module<T>()` to look up a module. |
+| `Disposable` | Implement on services, controllers or modules that need cleanup. |
 
 ---
 
 ## Use Cases
 
-### 1. Register a global service
+### 1. Define a module
 
 ```dart
 class SettingsModule extends RackModule {
-  @override
-  Future<void> setup(RackSetup rack) async {
-    rack.register<SettingsStore>(SettingsStore());
-  }
+  late final settings = use(SettingsStore());
 }
 ```
+
+`late final` makes the store lazy and single-instance: it is created on first access, and every later access returns the same instance. `use()` registers it for disposal — if it implements `Disposable`, it is disposed when the module is disposed. A store that is never read is never created.
 
 Mount at app root:
 
 ```dart
+final settingsModule = SettingsModule();
+
 RackProvider(
-  modules: [SettingsModule(), FilesModule()],
+  modules: [settingsModule],
   builder: () => const MyApp(),
 )
 ```
 
-Done. `SettingsStore` lives as long as the app. If it implements `Disposable`, it is disposed automatically when the app shuts down — no `dispose:` parameter needed.
+`RackProvider` takes already-created module instances. Create them once (top-level, in `main()` or in a `State`) — not inside a `build` method.
 
 ---
 
-### 2. Service that depends on another service
+### 2. A module that depends on another module
 
-`setup()` is async and receives a `RackSetup` that can read already-registered services:
+![rack with many modules: dependencies as constructor arguments, any list order, optional modules, loud errors](https://raw.githubusercontent.com/nichtheuteleute/rack/main/doc/images/rack-modules.png)
+
+A module declares its dependencies as constructor arguments — that is all. The dependency is checked by the compiler, not looked up at runtime:
 
 ```dart
 class FilesModule extends RackModule {
-  @override
-  Future<void> setup(RackSetup rack) async {
-    final settings = rack.read<SettingsStore>();
-    await rack.read<FilesStore>().init(settings.value);
-  }
+  FilesModule(this.settings);
+  final SettingsModule settings;
+
+  late final files = use(FilesStore(settings: settings.settings));
 }
 ```
 
-Modules run in declaration order. If `SettingsStore` isn't registered yet, the app asserts at startup with a clear message — not silently later.
-
----
-
-### 3. Async-constructed service
-
-Some services can't be created synchronously — they need async I/O before they're ready (auth tokens, file handles, remote config). Build and register in a single `setup()`:
-
 ```dart
-class FilesModule extends RackModule {
-  @override
-  Future<void> setup(RackSetup rack) async {
-    final settings = rack.read<SettingsStore>().settings.value;
+final settings = SettingsModule();
+final files = FilesModule(settings);
 
-    final source = settings.useCloudStorage
-        ? await CloudFileSource.create(token: settings.token)
-        : await LocalFileSource.create();
-
-    rack.register<FilesStore>(FilesStore(fileSource: source));
-  }
-}
-```
-
-The registered instance is available immediately to modules that run `setup()` after this one.
-
-This is not possible in `flutter_provider`, which separates `create` (sync, called once) from async side effects. Rack merges them into a single `setup()` phase, making the async→register flow first-class.
-
----
-
-### 4. Async initialization with loading state
-
-```dart
 RackProvider(
-  modules: [SettingsModule(), FilesModule()],
-  loading: const SplashScreen(),   // shown until all init() complete
+  modules: [settings, files], // every module, in any order
   builder: () => const MyApp(),
 )
 ```
 
-The app renders `SplashScreen` while modules initialize. Once all `init()` calls complete, `MyApp` appears. No `FutureBuilder`, no manual state.
+List every module, including those that are only passed to other modules: the provider initializes and disposes exactly the modules it is given. A module that is used but not listed is reported as soon as it is used (`SettingsModule is used, but no RackProvider provides it …`), so a forgotten entry fails at startup instead of running with unloaded data. Two different instances of one module type, or one module listed in two providers, are reported through `errorBuilder` as well.
+
+---
+
+### 3. Async initialization
+
+Override `init()` for work that needs async I/O before the app is usable (auth tokens, file handles, remote config):
+
+```dart
+class FilesModule extends RackModule {
+  FilesModule(this.settings);
+  final SettingsModule settings;
+
+  late final FileSource source;
+  late final files = use(FilesStore(fileSource: source));
+
+  @override
+  Future<void> init() async {
+    final s = settings.settings.value;
+    source = use(
+      s.useCloudStorage
+          ? await CloudFileSource.create(token: s.token)
+          : await LocalFileSource.create(),
+    );
+  }
+}
+```
+
+Modules are initialized one after another, **in the order they were created**. A dependency has to exist before it can be passed to a constructor, so it is always created — and initialized — first: `FilesModule.init()` above can rely on the settings being loaded, whatever the list order. Startup time is the sum of all `init()` calls; if two loads in one module are independent, run them together with `Future.wait`, and start network work after the first frame instead of in `init()`.
+
+---
+
+### 4. Loading and error state
+
+```dart
+RackProvider(
+  modules: [settings, files],
+  loading: const SplashScreen(),                  // shown until all init() complete
+  errorBuilder: (error) => StartupError(error),   // shown if an init() throws
+  builder: () => const MyApp(),
+)
+```
+
+The app renders `loading` while modules initialize; once all `init()` calls complete, `builder` is called. If an `init()` throws, initialization stops and `errorBuilder` receives a `StateError` naming the failing module (`"FilesModule.init() failed: …"`). Without `errorBuilder`, a plain `ErrorWidget` is shown. `loading` defaults to an empty widget.
 
 ---
 
@@ -109,9 +149,8 @@ The app renders `SplashScreen` while modules initialize. Once all `init()` calls
 ```dart
 class SidebarController implements Disposable {
   final FilesStore filesStore;
-  final SettingsStore settingsStore;
 
-  SidebarController({required this.filesStore, required this.settingsStore});
+  SidebarController({required this.filesStore});
 
   void openFile(MarkdownFile file) => filesStore.openFile(file.id);
   void createFile(String name) => filesStore.createFile(name: name);
@@ -121,77 +160,178 @@ class SidebarController implements Disposable {
 }
 
 class AppSidebar extends RackWidget<SidebarController> {
+  const AppSidebar({super.key});
+
   @override
   SidebarController create(Rack rack) => SidebarController(
-    filesStore: rack.read<FilesStore>(),
-    settingsStore: rack.read<SettingsStore>(),
+    filesStore: rack.module<FilesModule>().files,
   );
 
   @override
   Widget buildContent(BuildContext context, SidebarController controller) {
-    return FileTree(
-      files: controller.filesStore.fileTree.value,
-      onTap: controller.openFile,
+    return SignalBuilder(
+      builder: (context) => FileTree(
+        files: controller.filesStore.fileTree.value, // signal read → rebuild
+        onTap: controller.openFile,
+      ),
     );
   }
 }
 ```
 
-`create()` is called once when the widget mounts. `dispose()` is called when it unmounts. The controller is never recreated on rebuild.
+`create()` is called once when the widget mounts. If the controller implements `Disposable`, `dispose()` is called when it unmounts. The controller is never recreated on rebuild.
+
+`buildContent` is a plain build method — Rack does not track state reads. Wrap the parts that read reactive state in a builder, as close to the read as possible, so only they rebuild. See [Using Rack with signals](#using-rack-with-signals).
+
+`rack.module<T>()` throws a `StateError` naming the type if no such module is provided. Use `rack.moduleOrNull<T>()` for optional modules.
 
 ---
 
 ### 6. Events stay in the controller — no callbacks up the tree
 
 ```
-Widget → calls controller method → controller calls store → store updates signal → Widget rebuilds
+Widget → calls controller method → controller calls store → store updates signal → SignalBuilder rebuilds
 ```
 
 No `onTap: (file) => setState(...)` bubbling up through three widget layers. No callbacks passed as constructor arguments through the tree. The controller is the only place that knows about stores.
 
 ---
 
-### 7. Screen-scoped services
+### 7. Screen-scoped modules
 
-Some services belong to a screen, not the whole app — a search store, a form state, a local selection. Nest a second `RackProvider` anywhere in the tree to add screen-local registrations:
+Some services belong to a screen, not the whole app — a search store, a form state, a local selection. Nest a second `RackProvider` to provide screen-local modules:
 
 ```dart
 class EditorModule extends RackModule {
-  @override
-  Future<void> setup(RackSetup rack) async {
-    rack.register<EditorSearchStore>(EditorSearchStore());
-  }
+  late final search = use(EditorSearchStore());
 }
 
-class EditorScreen extends StatelessWidget {
+class EditorScreen extends StatefulWidget {
+  const EditorScreen({super.key});
+
+  @override
+  State<EditorScreen> createState() => _EditorScreenState();
+}
+
+class _EditorScreenState extends State<EditorScreen> {
+  final _editor = EditorModule(); // created once, not on every build
+
   @override
   Widget build(BuildContext context) => RackProvider(
-    modules: [EditorModule()],
-    builder: () => _EditorScreenInner(),
+    modules: [_editor],
+    builder: () => const _EditorView(),
   );
 }
 
-class _EditorScreenInner extends RackWidget<EditorController> {
+class _EditorView extends RackWidget<EditorController> {
+  const _EditorView();
+
   @override
   EditorController create(Rack rack) => EditorController(
-    filesStore: rack.read<FilesStore>(),          // global — from app-root RackProvider
-    searchStore: rack.read<EditorSearchStore>(),   // scoped — from EditorScreen's RackProvider
+    filesStore: rack.module<FilesModule>().files,       // global — from the app-root provider
+    searchStore: rack.module<EditorModule>().search,    // scoped — from EditorScreen's provider
+  );
+
+  @override
+  Widget buildContent(BuildContext context, EditorController controller) => …;
+}
+```
+
+A nested `RackProvider` merges its parent's modules: parent modules stay accessible, and a nested module replaces a parent module of the same type.
+
+Lifecycle: `EditorModule` is initialized when `EditorScreen` mounts and disposed when it unmounts. Modules of the parent provider are unaffected.
+
+If a scoped module depends on a parent module, look the parent up with `Rack(context).module<T>()` and pass it to the constructor — e.g. in `didChangeDependencies` of the `State`.
+
+---
+
+### 8. Testing
+
+Controllers are plain Dart — test them by constructing them with fake stores, no widget tree needed.
+
+For widget tests, wrap the widget in a `RackProvider` with the modules it looks up. Modules are keyed by their **runtime type**, so `rack.module<FilesModule>()` does not find a subclass like `FakeFilesModule`. Make a module testable by letting its constructor accept fakes instead:
+
+```dart
+class FilesModule extends RackModule {
+  FilesModule(this.settings, {FileSource? source}) : _override = source;
+  final SettingsModule settings;
+  final FileSource? _override;
+
+  late final FileSource source;
+  late final files = use(FilesStore(fileSource: source));
+
+  @override
+  Future<void> init() async {
+    source = _override ?? use(await LocalFileSource.create());
+  }
+}
+
+// In a widget test:
+RackProvider(
+  modules: [FilesModule(SettingsModule(), source: InMemoryFileSource())],
+  builder: () => const AppSidebar(),
+)
+```
+
+---
+
+## Using Rack with signals
+
+Rack and [signals](https://pub.dev/packages/signals_flutter) are a good fit: modules own the stores, stores expose signals, controllers change them. Rack itself does not depend on signals, so you pick the version and decide where the UI reacts. The recommendations below need `signals_flutter` 7 or later.
+
+**The pitfall:** a signal read in a plain `build` or `buildContent` is not tracked. The UI shows the value once and then silently stays stale — no error, no lint. Every signal read in the UI must happen inside one of the following.
+
+**1. In a screen: `SignalBuilder` around the part that reads.** Keep it small — only the wrapped part rebuilds.
+
+```dart
+@override
+Widget buildContent(BuildContext context, CounterController controller) {
+  return Scaffold(
+    appBar: AppBar(title: const Text('Counter')), // never rebuilds
+    body: SignalBuilder(
+      builder: (context) => Text('${controller.count.value}'),
+    ),
   );
 }
 ```
 
-A nested `RackProvider` automatically merges its parent's services. Global services remain accessible — the inner provider only adds or overrides, it doesn't replace. Local services override global ones if the same type is registered in both.
-
-Lifecycle: `EditorSearchStore` is created when `EditorScreen` mounts and disposed when it unmounts. `FilesStore` is unaffected.
-
-This also makes overriding services in tests trivial:
+**2. In child widgets: extend `SignalWidget` instead of `StatelessWidget`.** Signals read in its `build` are tracked, and only that widget rebuilds. Use `SignalStatefulWidget` for stateful ones.
 
 ```dart
-// In a widget test: wrap with a RackProvider that provides a mock store
-RackProvider(
-  modules: [MockFilesModule()],
-  builder: () => AppSidebar(),
-)
+class _FilterChip extends SignalWidget {
+  const _FilterChip({required this.controller});
+  final NotesController controller;
+
+  @override
+  Widget build(BuildContext context) =>
+      Text(controller.filter.value.name); // tracked
+}
+```
+
+Prefer these two over the `Watch` widget and `.watch(context)`, which are deprecated in signals 7.
+
+**3. Optional: make every screen reactive by default.** If you'd rather not think about it per screen, define a base class once in your app and use it instead of `RackWidget`:
+
+```dart
+abstract class SignalRackWidget<C extends Object> extends RackWidget<C> {
+  const SignalRackWidget({super.key});
+
+  Widget buildReactive(BuildContext context, C controller);
+
+  @override
+  Widget buildContent(BuildContext context, C controller) =>
+      SignalBuilder(builder: (context) => buildReactive(context, controller));
+}
+```
+
+This tracks reads directly in `buildReactive` and rebuilds the whole screen on every change. Child widgets still need rule 2.
+
+**4. Catch forgotten wraps with a test.** A widget test that changes a signal and expects the new value on screen fails if a read is not tracked:
+
+```dart
+controller.count.value = 1;
+await tester.pump();
+expect(find.text('1'), findsOneWidget);
 ```
 
 ---
@@ -202,11 +342,11 @@ RackProvider(
 
 Provider's DI mechanism IS the widget tree — every `context.read<T>()` traverses it. Business logic ends up scattered across widgets because the only way to get a dependency is through a `BuildContext`.
 
-Rack separates concerns: modules register services, controllers receive them at creation time, widgets call methods. No `context.read<T>()` in build methods.
+Rack separates concerns: modules hold services, controllers receive them at creation time, widgets call methods. No `context.read<T>()` in build methods, and module-to-module dependencies are plain constructor arguments.
 
 ### vs. Riverpod
 
-Riverpod requires code generation (`.g.dart` files) for any non-trivial setup, and auto-dispose scoping requires understanding provider families and lifetimes. Testing needs `ProviderContainer` setup.
+Riverpod recommends code generation (`.g.dart` files, `build_runner`), and auto-dispose scoping requires understanding provider families and lifetimes. Dependencies between providers live inside their bodies (`ref.watch`), not in a signature. Testing needs `ProviderContainer` setup.
 
 Rack has no generated code. Controller lifecycle is explicit — a controller exists exactly as long as its widget. Testing a controller is plain Dart: construct it with mock stores, call methods, assert on signal values.
 
@@ -220,7 +360,22 @@ Rack controllers are plain Dart objects. A button tap is a method call. If you n
 
 ## Rules
 
-- **One service per type.** `RackProvider` holds one instance per registered type. Nest a `RackProvider` to scope services to a subtree.
+- **One module per type.** A `RackProvider` holds one instance per module runtime type; two different instances are an error. Nest a `RackProvider` to scope modules to a subtree.
+- **Dependencies go through the constructor.** A module takes the modules it needs as constructor arguments. List every module in `RackProvider`, in any order.
+- **Create modules once.** Pass instances that outlive rebuilds — never construct them inline in a `build` method.
 - **No business logic in widgets.** Widgets call controller methods; controllers call stores. Never the other way.
 - **Controllers get stores, not other controllers.** Shared state belongs in a store.
-- **Implement `Disposable` on anything that needs cleanup.** Services and controllers are disposed automatically if they implement `Disposable`. No explicit `dispose:` callback needed at registration.
+- **Every reactive read in the UI is wrapped.** Read signals (or notifiers, streams) only inside a builder or a reactive widget like `SignalWidget` — Rack does not track reads, so an unwrapped read never rebuilds.
+- **Wrap module services in `use()` and implement `Disposable` on anything that needs cleanup.** Module services are disposed in reverse creation order, modules in reverse creation order, controllers when their widget unmounts.
+
+## Decisions
+
+- [ADR 001: Live-Lookup statt Snapshot im init()-Rack](doc/decisions/001-live-lookup-in-init.md) — superseded
+- [ADR 002: Module als typisierte Container](doc/decisions/002-typed-modules.md)
+- [ADR 003: Keine Abhängigkeit zu signals](doc/decisions/003-no-signals-dependency.md)
+- [ADR 004–006: Parallele Initialisierung und `dependsOn`](doc/decisions/004-parallel-init.md) — superseded
+- [ADR 007: Initialisierung in Erzeugungsreihenfolge, ohne `dependsOn`](doc/decisions/007-creation-order.md)
+
+## License
+
+MIT — see [LICENSE](LICENSE).
