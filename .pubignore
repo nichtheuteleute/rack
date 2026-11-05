@@ -1,0 +1,22 @@
+# .pubignore replaces .gitignore for publishing — keep both in sync.
+
+# Dart / Flutter
+.dart_tool/
+build/
+.packages
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# macOS
+.DS_Store
+
+# FVM Version Cache
+.fvm/
+
+# Benchmarks and tooling are not part of the package
+tool/

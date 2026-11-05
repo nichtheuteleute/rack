@@ -1,0 +1,16 @@
+name: rack_benchmark
+description: Measures the runtime overhead of rack against plain Flutter and provider.
+publish_to: none
+
+environment:
+  sdk: ^3.6.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  rack:
+    path: ../..
+  provider: ^6.1.5
+
+dev_dependencies:
+  flutter_lints: ^6.0.0

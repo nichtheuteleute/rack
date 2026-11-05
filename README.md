@@ -8,6 +8,14 @@ Rack does two things:
 
 State management is not Rack's job, and Rack has no dependencies besides Flutter. Your stores can use [signals](https://pub.dev/packages/signals_flutter), `ValueNotifier`, streams or plain Dart — wrap the part of the UI that reads them in the matching builder (`SignalBuilder`, `ValueListenableBuilder`, `StreamBuilder`). The examples below use signals; see [Using Rack with signals](#using-rack-with-signals) for the recommended setup.
 
+## Why Rack
+
+- **Small enough to read completely.** About 160 lines of code in six classes (roughly 2,000 tokens). You, a reviewer or an AI coding agent can read the whole library instead of guessing how it works. For comparison: flutter_bloc + bloc ≈ 1,100 lines, get_it ≈ 2,300, provider ≈ 2,500, flutter_riverpod + riverpod ≈ 9,500.
+- **No dependencies, no code generation.** Only Flutter. No `build_runner`, no generated files to keep in sync, no version conflicts with the state library you choose.
+- **Compile-checked wiring.** Module dependencies are constructor arguments, so a missing dependency is a compile error, not a runtime lookup failure.
+- **Negligible overhead.** Mounting a screen with its controller costs about 0.8 µs — 0.15 µs more than a hand-written `StatefulWidget`, and about 40 % less than the usual provider pattern ([benchmark](tool/benchmark/README.md)).
+- **Works well with AI coding agents.** In a benchmark of 72 Claude Code runs on the same app built with rack, Riverpod and Bloc, agents solved every rack task (Riverpod 24/24, Bloc 23/24) at the same cost as Riverpod and about 15 % below Bloc, and finished feature tasks fastest ([method and results](tool/agent_bench/RESULTS.md)).
+
 ## Installation
 
 ```sh
