@@ -20,3 +20,6 @@ build/
 
 # Benchmarks and tooling are not part of the package
 tool/
+
+# Banner images are linked from GitHub, not shipped in the package
+doc/images/
