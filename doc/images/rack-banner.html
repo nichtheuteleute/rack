@@ -2,16 +2,16 @@
 <html><head><meta charset="utf-8">
 <style>
   html,body{margin:0;padding:0}
-  body{width:1280px;height:640px;overflow:hidden;
+  body{width:1280px;height:640px;overflow:hidden;position:relative;color:#e8eefc;
     background:
-      radial-gradient(900px 500px at 85% 20%, rgba(84,197,248,.16), transparent 60%),
-      radial-gradient(700px 400px at 10% 100%, rgba(94,234,212,.10), transparent 60%),
+      radial-gradient(900px 520px at 82% 30%, rgba(84,197,248,.14), transparent 60%),
+      radial-gradient(700px 420px at 8% 100%, rgba(94,234,212,.10), transparent 60%),
       linear-gradient(160deg,#0a1020 0%,#0e1830 55%,#0b1326 100%);
-    font-family:-apple-system,"SF Pro Display","Helvetica Neue",Arial,sans-serif;color:#e8eefc;position:relative}
+    font-family:-apple-system,"SF Pro Display","Helvetica Neue",Arial,sans-serif}
   .dots{position:absolute;inset:0;
     background-image:radial-gradient(rgba(148,175,230,.13) 1px, transparent 1.4px);
-    background-size:28px 28px;mask-image:linear-gradient(90deg,#000 0%,rgba(0,0,0,.35) 60%,transparent 100%)}
-  .left{position:absolute;left:84px;top:96px;width:600px}
+    background-size:28px 28px;mask-image:linear-gradient(90deg,#000 0%,rgba(0,0,0,.3) 55%,transparent 100%)}
+  .left{position:absolute;left:84px;top:150px;width:560px}
   .mark{font-size:148px;font-weight:800;letter-spacing:-6px;line-height:1;
     background:linear-gradient(180deg,#ffffff 0%,#cfe6ff 100%);-webkit-background-clip:text;color:transparent}
   .mark span{background:linear-gradient(90deg,#54c5f8,#5eead4);-webkit-background-clip:text;color:transparent}
@@ -20,10 +20,20 @@
   .pills{display:flex;gap:12px;margin-top:34px}
   .pill{font-size:19px;font-weight:600;padding:9px 16px;border-radius:999px;
     border:1.5px solid rgba(94,234,212,.45);color:#c9fbf1;background:rgba(94,234,212,.07)}
-  .code{margin-top:40px;font-family:"SF Mono",Menlo,monospace;font-size:18px;line-height:1.5;color:#8ea3c9;
-    background:rgba(9,16,32,.6);border:1px solid rgba(120,150,210,.18);border-radius:12px;padding:16px 20px;width:max-content}
-  .k{color:#c792ea}.t{color:#54c5f8}.f{color:#e8eefc}.p{color:#5eead4}.c{color:#5d7096}
-  svg{position:absolute;right:56px;top:52px}
+
+  .right{position:absolute;right:52px;top:40px;width:560px}
+  .card{background:linear-gradient(180deg,#1c2c4f,#152342);border:1px solid #2f4778;border-radius:14px;
+    box-shadow:0 14px 34px rgba(0,0,0,.40);padding:12px 18px 14px}
+  .head{display:flex;align-items:baseline;gap:10px;margin-bottom:8px}
+  .num{font-size:12px;font-weight:700;color:#0b1326;background:#5eead4;border-radius:999px;
+    width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center}
+  .label{font-size:13px;font-weight:700;letter-spacing:1.4px;color:#9fb3d9}
+  .hint{font-size:13px;color:#6f84ad}
+  pre{margin:0;font-family:"SF Mono",Menlo,monospace;font-size:14.5px;line-height:1.55;color:#c3cfe8}
+  .k{color:#c792ea}.t{color:#7fb6ff}.s{color:#e8eefc}.c{color:#5d7096}
+  .r{color:#5eead4;font-weight:600}
+  .link{height:22px;position:relative}
+  .link:after{content:"";position:absolute;left:44px;top:3px;width:2px;height:16px;background:#3a5a8c}
 </style></head><body>
 <div class="dots"></div>
 <div class="left">
@@ -34,88 +44,32 @@
     <div class="pill">0 dependencies</div>
     <div class="pill">no code generation</div>
   </div>
-  <div class="code"><span class="t">NotesController</span> <span class="f">create</span>(<span class="t">Rack</span> <span class="p">rack</span>) =&gt;<br>
-&nbsp;&nbsp;&nbsp;&nbsp;<span class="t">NotesController</span>(<span class="p">rack</span>.<span class="f">module</span>&lt;<span class="t">AppModule</span>&gt;().<span class="p">notes</span>);</div>
 </div>
 
-<svg width="490" height="540" viewBox="0 0 490 540" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="card" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#22355c"/><stop offset="1" stop-color="#18264a"/>
-    </linearGradient>
-    <linearGradient id="phone" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#1b2a4a"/><stop offset="1" stop-color="#121d36"/>
-    </linearGradient>
-    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
-    <filter id="shadow" x="-20%" y="-20%" width="140%" height="160%">
-      <feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#000" flood-opacity=".45"/>
-    </filter>
-    <marker id="down" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
-      <path d="M0,0 L10,5 L0,10 z" fill="#5eead4"/>
-    </marker>
-    <marker id="up" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
-      <path d="M0,0 L10,5 L0,10 z" fill="#c792ea"/>
-    </marker>
-  </defs>
+<div class="right">
+  <div class="card">
+    <div class="head"><span class="num">1</span><span class="label">MODULE</span><span class="hint">holds your stores</span></div>
+<pre><span class="k">class</span> <span class="t">AppModule</span> <span class="k">extends</span> <span class="r">RackModule</span> {
+  <span class="k">late final</span> <span class="s">notes</span> = <span class="r">use</span>(<span class="t">NotesStore</span>());
+}</pre>
+  </div>
+  <div class="link"></div>
+  <div class="card">
+    <div class="head"><span class="num">2</span><span class="label">CONTROLLER</span><span class="hint">plain Dart, one per screen</span></div>
+<pre><span class="k">class</span> <span class="t">NotesController</span> {
+  <span class="t">NotesController</span>(<span class="k">this</span>.<span class="s">notes</span>);
+  <span class="k">final</span> <span class="t">NotesStore</span> <span class="s">notes</span>;
+}</pre>
+  </div>
+  <div class="link"></div>
+  <div class="card">
+    <div class="head"><span class="num">3</span><span class="label">SCREEN</span><span class="hint">creates and disposes its controller</span></div>
+<pre><span class="k">class</span> <span class="t">NotesScreen</span> <span class="k">extends</span> <span class="r">RackWidget</span>&lt;<span class="t">NotesController</span>&gt; {
+  <span class="t">NotesController</span> <span class="s">create</span>(<span class="t">Rack</span> rack) =&gt;
+      <span class="t">NotesController</span>(<span class="r">rack.module</span>&lt;<span class="t">AppModule</span>&gt;().<span class="s">notes</span>);
 
-  <!-- MODULE -->
-  <g filter="url(#shadow)">
-    <rect x="20" y="10" width="360" height="118" rx="16" fill="url(#card)" stroke="#33508a" stroke-width="1.5"/>
-  </g>
-  <text x="42" y="44" font-family="SF Mono, Menlo, monospace" font-size="19" fill="#ffffff" font-weight="600">AppModule</text>
-  <text x="358" y="44" font-family="-apple-system, Helvetica Neue, Arial" font-size="12" fill="#7f95bf" text-anchor="end" letter-spacing="1">MODULE</text>
-  <g font-family="SF Mono, Menlo, monospace" font-size="14.5">
-    <rect x="42" y="60" width="316" height="26" rx="7" fill="#132040"/>
-    <text x="54" y="78"><tspan fill="#5eead4">notes</tspan><tspan fill="#8ea3c9">    = use(</tspan><tspan fill="#54c5f8">NotesStore</tspan><tspan fill="#8ea3c9">())</tspan></text>
-    <rect x="42" y="92" width="316" height="26" rx="7" fill="#132040"/>
-    <text x="54" y="110"><tspan fill="#5eead4">settings</tspan><tspan fill="#8ea3c9"> = use(</tspan><tspan fill="#54c5f8">SettingsStore</tspan><tspan fill="#8ea3c9">())</tspan></text>
-  </g>
-
-  <!-- module -> controller -->
-  <line x1="185" y1="132" x2="185" y2="188" stroke="#5eead4" stroke-width="2.5" marker-end="url(#down)"/>
-  <text x="200" y="166" font-family="SF Mono, Menlo, monospace" font-size="13" fill="#8fd9cc">rack.module&lt;AppModule&gt;()</text>
-
-  <!-- CONTROLLER -->
-  <g filter="url(#shadow)">
-    <rect x="20" y="196" width="360" height="96" rx="16" fill="url(#card)" stroke="#33508a" stroke-width="1.5"/>
-  </g>
-  <text x="42" y="230" font-family="SF Mono, Menlo, monospace" font-size="19" fill="#ffffff" font-weight="600">NotesController</text>
-  <text x="358" y="230" font-family="-apple-system, Helvetica Neue, Arial" font-size="12" fill="#7f95bf" text-anchor="end" letter-spacing="1">CONTROLLER</text>
-  <text x="42" y="256" font-family="-apple-system, Helvetica Neue, Arial" font-size="14.5" fill="#b9c8e6">one per screen</text>
-  <text x="42" y="277" font-family="-apple-system, Helvetica Neue, Arial" font-size="14.5" fill="#7f95bf">created on mount · disposed on unmount</text>
-
-  <!-- controller <-> view -->
-  <line x1="150" y1="296" x2="150" y2="352" stroke="#5eead4" stroke-width="2.5" marker-end="url(#down)"/>
-  <text x="138" y="330" font-family="SF Mono, Menlo, monospace" font-size="13" fill="#8fd9cc" text-anchor="end">state</text>
-  <line x1="220" y1="352" x2="220" y2="300" stroke="#c792ea" stroke-width="2.5" marker-end="url(#up)"/>
-  <text x="234" y="330" font-family="SF Mono, Menlo, monospace" font-size="13" fill="#d7b4f0">controller.add()</text>
-
-  <!-- VIEW: phone -->
-  <g filter="url(#shadow)">
-    <rect x="80" y="360" width="210" height="172" rx="22" fill="url(#phone)" stroke="#33508a" stroke-width="1.5"/>
-  </g>
-  <rect x="155" y="368" width="60" height="6" rx="3" fill="#0c1529"/>
-  <text x="100" y="398" font-family="-apple-system, Helvetica Neue, Arial" font-size="15" fill="#ffffff" font-weight="700">Notes</text>
-  <text x="270" y="398" font-family="-apple-system, Helvetica Neue, Arial" font-size="11" fill="#5eead4" text-anchor="end">2 open</text>
-  <g>
-    <rect x="96" y="410" width="178" height="26" rx="7" fill="#1e2f53"/>
-    <circle cx="111" cy="423" r="6" fill="none" stroke="#5eead4" stroke-width="1.6"/>
-    <rect x="124" y="420" width="92" height="6" rx="3" fill="#8ea3c9"/>
-    <rect x="96" y="442" width="178" height="26" rx="7" fill="#1e2f53"/>
-    <circle cx="111" cy="455" r="6" fill="#5eead4"/>
-    <path d="M108 455 l2.2 2.2 l4 -4.4" stroke="#0b1326" stroke-width="1.6" fill="none"/>
-    <rect x="124" y="452" width="70" height="6" rx="3" fill="#5d7096"/>
-    <rect x="96" y="474" width="178" height="26" rx="7" fill="#1e2f53"/>
-    <circle cx="111" cy="487" r="6" fill="none" stroke="#5eead4" stroke-width="1.6"/>
-    <rect x="124" y="484" width="110" height="6" rx="3" fill="#8ea3c9"/>
-  </g>
-  <circle cx="262" cy="512" r="12" fill="#54c5f8"/>
-  <path d="M262 506 v12 M256 512 h12" stroke="#0b1326" stroke-width="2.2"/>
-  <text x="306" y="440" font-family="SF Mono, Menlo, monospace" font-size="19" fill="#ffffff" font-weight="600">NotesScreen</text>
-  <text x="306" y="462" font-family="-apple-system, Helvetica Neue, Arial" font-size="12" fill="#7f95bf" letter-spacing="1">VIEW</text>
-  <text x="306" y="484" font-family="SF Mono, Menlo, monospace" font-size="12.5" fill="#8ea3c9">RackWidget&lt;</text>
-  <text x="306" y="501" font-family="SF Mono, Menlo, monospace" font-size="12.5" fill="#8ea3c9">  NotesController&gt;</text>
-</svg>
+  <span class="t">Widget</span> <span class="s">buildContent</span>(context, controller) =&gt; <span class="c">…</span>;
+}</pre>
+  </div>
+</div>
 </body></html>
