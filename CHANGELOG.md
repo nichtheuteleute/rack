@@ -1,3 +1,7 @@
+## 0.1.1
+
+- Shorter README; details moved to `doc/guide.md`.
+
 ## 0.1.0
 
 Initial release.
