@@ -49,8 +49,10 @@ def cell(values, fmt):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--min-run", type=int, default=1)
+    ap.add_argument("--prefix", default="0",
+                    help="task name prefix: 0 = small suite, L = large suite")
     a = ap.parse_args()
-    rows = load(a.min_run)
+    rows = [r for r in load(a.min_run) if r["task"].startswith(a.prefix)]
     tasks = sorted({r["task"] for r in rows})
 
     print("Median (min–max) per task and variant.\n")

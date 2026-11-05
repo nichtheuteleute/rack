@@ -1,8 +1,8 @@
 # Agent benchmark results
 
-Run on 2026-11-05 with Claude Code 2.1.318, model alias `sonnet` (Claude Sonnet 5.5), Flutter 3.47.8. 72 runs (4 tasks × 3 variants × 6 runs), total API cost $7.21. Method and limits: [README.md](README.md). Raw data: `results/*.jsonl`.
+Run on 2026-11-05 with Claude Code 2.1.318, model alias `sonnet` (Claude Sonnet 5.5), Flutter 3.47.8. Small suite: 72 runs (4 tasks × 3 variants × 6 runs), $7.21. Large suite: 18 runs (2 tasks × 3 variants × 3 runs), $1.52. Method and limits: [README.md](README.md). Raw data: `results/*.jsonl`.
 
-## Summary
+## Small suite (original app, ~3,000 tokens of code per variant)
 
 | | rack | Riverpod | Bloc |
 |---|---|---|---|
@@ -25,7 +25,7 @@ Run on 2026-11-05 with Claude Code 2.1.318, model alias `sonnet` (Claude Sonnet 
 - Bug fixing showed no difference at all — the app is small enough that every agent reads the whole code base first.
 - No claim about large code bases: there, structure might matter more for search effort, in either direction.
 
-## Per task
+## Small suite per task
 
 Median (min–max) over 6 runs. "context tok" = all input tokens incl. cache reads.
 
@@ -60,4 +60,53 @@ Median (min–max) over 6 runs. "context tok" = all input tokens incl. cache rea
 | rack | 6/6 | 0.125 (0.099–0.146) | 185,084 (105,141–242,250) | 3,948 (3,350–4,791) | 6 (4–8) | 35 (27–44) | 114 (92–128) |
 | riverpod | 6/6 | 0.121 (0.113–0.144) | 139,109 (129,671–242,304) | 4,208 (3,724–4,463) | 5 (5–8) | 46 (44–64) | 136 (122–163) |
 | bloc | 6/6 | 0.178 (0.141–0.191) | 258,275 (139,538–301,674) | 6,359 (5,181–6,768) | 8 (5–9) | 52 (35–60) | 194 (165–283) |
+
+## Large suite (five more features, 16,000–22,000 tokens per variant)
+
+To check whether rack's explicit wiring reduces search effort once the code base no longer fits into one `cat`, the three variants were extended by their original authors with profile, activity log, archive, export and search (`spec_large/`, `variants_large/`). Two tasks (`tasks_large/`):
+
+- `L1_archive_activity` — the activity log must also record archiving and restoring: adds a **new dependency between two existing features**.
+- `L2_fix_reopen_activity` — bug report "un-checking a note logs *Completed* again"; the same bug is injected into each variant, revealing tests are weakened alike.
+
+| variant | lib tokens (hand-written) | generated tokens | lib files |
+|---|---|---|---|
+| rack | 8,538 | – | 35 |
+| riverpod | 6,857 | 7,160 | 23 (+7 generated) |
+| bloc | 11,570 | – | 45 |
+
+#### L1_archive_activity
+
+| variant | solved | cost $ | context tok | output tok | turns | time s | lines changed |
+|---|---|---|---|---|---|---|---|
+| rack | 3/3 | 0.166 (0.125–0.172) | 193,165 (173,578–300,109) | 7,106 (4,423–7,145) | 7 (6–10) | 47 (41–57) | 132 (129–151) |
+| riverpod | 2/3 | 0.081 (0.079–0.089) | 130,559 (108,902–166,951) | 1,636 (1,597–1,673) | 5 (4–6) | 21 (21–22) | 27 (27–162) |
+| bloc | 3/3 | 0.086 (0.082–0.089) | 127,828 (126,771–129,487) | 2,177 (2,130–2,202) | 5 (5–5) | 22 (22–25) | 53 (47–57) |
+
+#### L2_fix_reopen_activity
+
+| variant | solved | cost $ | context tok | output tok | turns | time s | lines changed |
+|---|---|---|---|---|---|---|---|
+| rack | 3/3 | 0.055 (0.049–0.057) | 138,378 (133,411–138,583) | 1,027 (1,024–1,032) | 6 (6–6) | 17 (17–18) | 11 (11–11) |
+| riverpod | 3/3 | 0.052 (0.051–0.074) | 113,116 (111,988–175,972) | 947 (943–1,392) | 5 (5–7) | 19 (18–31) | 13 (12–14) |
+| bloc | 3/3 | 0.069 (0.069–0.072) | 148,383 (146,167–167,072) | 1,601 (1,509–1,623) | 8 (7–9) | 20 (20–20) | 21 (16–24) |
+
+#### Both tasks: sum of per-task medians
+
+| variant | solved | cost $ | context tok | output tok | turns | time s | lines changed |
+|---|---|---|---|---|---|---|---|
+| rack | 6/6 | 0.221 | 331,543 | 8,133 | 13 | 64 | 143 |
+| riverpod | 5/6 | 0.133 | 243,675 | 2,583 | 10 | 40 | 40 |
+| bloc | 6/6 | 0.155 | 276,211 | 3,778 | 13 | 43 | 74 |
+
+
+**Reading**
+
+- **Adding a new dependency between features is where rack is weakest.** For L1, rack cost about twice as much as Riverpod and Bloc ($0.166 vs. $0.081 / $0.086 median) and changed about 130 lines in 6 files: the activity module's constructor, new event types, the archive store, the composition root in `main.dart` and tests. Riverpod needed one `ref.read(activityLogProvider)` in the archive notifier (27 lines, 2 files); Bloc's central repository already broadcast changes (53 lines, 4 files). Compile-checked constructor wiring has a price whenever the dependency graph changes.
+- Bug fixing (L2) was cheap everywhere; rack and Riverpod were on par, Bloc slightly more expensive.
+- The unsolved Riverpod run only reformatted the shared data files (`dart format`), which the rules forbid; its feature work was correct.
+- In none of the 90 runs did an agent open rack's own README or source — the project's README was enough.
+
+## Overall conclusion
+
+Token usage is **not** an advantage of rack. On the small app rack was on par with Riverpod and cheaper than Bloc; on the larger app rack was clearly more expensive when a new cross-feature dependency had to be wired. What holds across all runs: agents solved every rack task (30/30; Riverpod 29/30, Bloc 29/30) without needing rack's documentation.
 

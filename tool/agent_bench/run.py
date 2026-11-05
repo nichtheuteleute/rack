@@ -24,12 +24,33 @@ RACK_SNAPSHOT = WORK / "pkg" / "rack"
 VARIANTS = ["rack", "riverpod", "bloc"]
 IGNORE = shutil.ignore_patterns(".dart_tool", "build", ".fvm", "_spec")
 DATA_FILES = ["lib/data/note.dart", "lib/data/notes_storage.dart",
-              "lib/data/settings_storage.dart"]
-ACCEPTANCE = BENCH / "spec" / "acceptance" / "acceptance_test.dart"
+              "lib/data/settings_storage.dart", "lib/data/profile_storage.dart",
+              "lib/data/activity_storage.dart", "lib/data/archive_storage.dart"]
+# Suites: "small" (the original app) and "large" (with five more features).
+SUITES = {
+    "small": {
+        "variants": BENCH / "variants",
+        "tasks": BENCH / "tasks",
+        "acceptance": [BENCH / "spec" / "acceptance" / "acceptance_test.dart"],
+    },
+    "large": {
+        "variants": BENCH / "variants_large",
+        "tasks": BENCH / "tasks_large",
+        "acceptance": [
+            BENCH / "spec" / "acceptance" / "acceptance_test.dart",
+            BENCH / "spec_large" / "acceptance" / "acceptance_large_test.dart",
+        ],
+    },
+}
+SUITE = SUITES["small"]
+
+
+def task_dir(task):
+    return SUITE["tasks"] / task
 
 
 def task_config(task):
-    p = BENCH / "tasks" / task / "config.json"
+    p = task_dir(task) / "config.json"
     return json.loads(p.read_text()) if p.exists() else {}
 
 
@@ -64,8 +85,8 @@ def prepare(task, variant, run):
     d = WORK / "runs" / task / variant / str(run)
     if d.exists():
         shutil.rmtree(d)
-    shutil.copytree(BENCH / "variants" / variant, d, ignore=IGNORE)
-    inject = BENCH / "tasks" / task / "inject.py"
+    shutil.copytree(SUITE["variants"] / variant, d, ignore=IGNORE)
+    inject = task_dir(task) / "inject.py"
     if inject.exists():
         code, out = sh(f"python3 -I '{inject}' {variant} '{d}'", BENCH)
         assert code == 0, out
@@ -152,15 +173,19 @@ def evaluate(d, task):
                   for f in DATA_FILES if f not in allowed)
     # The agent may extend the project's tests; the original acceptance test
     # and the task's hidden test are added as separate files.
-    shutil.copy(ACCEPTANCE, d / "test" / "zz_acceptance_original_test.dart")
-    shutil.copy(BENCH / "tasks" / task / "hidden_test.dart",
+    originals = []
+    for i, src in enumerate(SUITE["acceptance"]):
+        name = f"zz_acceptance_original_{i}_test.dart"
+        shutil.copy(src, d / "test" / name)
+        originals.append(name)
+    shutil.copy(task_dir(task) / "hidden_test.dart",
                 d / "test" / "zz_hidden_test.dart")
     analyze_code, analyze_out = sh("fvm flutter analyze", d)
     test_code, test_out = sh("fvm flutter test", d)
     hidden_code, hidden_out = sh(
         "fvm flutter test test/zz_hidden_test.dart "
-        "test/zz_acceptance_original_test.dart", d)
-    for f in ("zz_acceptance_original_test.dart", "zz_hidden_test.dart"):
+        + " ".join(f"test/{n}" for n in originals), d)
+    for f in originals + ["zz_hidden_test.dart"]:
         (d / "test" / f).unlink()
     sh("git add -A", d)
     _, stat = sh("git diff --cached --shortstat HEAD -- . "
@@ -182,7 +207,7 @@ def evaluate(d, task):
 
 def one(task, variant, run, model, timeout_s):
     d = prepare(task, variant, run)
-    prompt = (BENCH / "tasks" / task / "prompt.md").read_text()
+    prompt = (task_dir(task) / "prompt.md").read_text()
     transcript = transcript_path(task, variant, run)
     wall, timed_out = run_agent(d, transcript, prompt, model, timeout_s)
     rec = {"task": task, "variant": variant, "run": run, "model": model,
@@ -216,9 +241,12 @@ def main():
     ap.add_argument("--variants", default=",".join(VARIANTS))
     ap.add_argument("--parallel", type=int, default=3)
     ap.add_argument("--timeout", type=int, default=1500)
+    ap.add_argument("--suite", choices=sorted(SUITES), default="small")
     ap.add_argument("--reevaluate", action="store_true",
                     help="grade existing work dirs instead of running agents")
     a = ap.parse_args()
+    global SUITE
+    SUITE = SUITES[a.suite]
     if a.reevaluate:
         out = BENCH / "results" / f"{a.task}.jsonl"
         for v in a.variants.split(","):

@@ -27,6 +27,10 @@ python3 -I tool/agent_bench/code_size.py tool/agent_bench/variants/*
 - **One model, one agent, one app.** Results are for Claude Sonnet in Claude Code on this app. Six runs per cell show the spread but are not enough for strong statistical claims.
 - **Variants written by agents.** Each followed its library's docs, but "idiomatic" is a judgement call. The variants are in this folder for anyone to review.
 
+## Large suite
+
+`spec_large/EXTENSION_SPEC.md` adds five features (profile, activity log, archive, export, search) to all three variants (`variants_large/`), and `tasks_large/` has two tasks for them. Run with `--suite large`; report with `report.py --prefix L`.
+
 ## Code size of the variants
 
 From `code_size.py` (tokens ≈ characters / 4, shared files excluded):
