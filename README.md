@@ -1,5 +1,7 @@
 # Rack
 
+![rack — small, explicit dependency injection and controller lifecycle for Flutter](https://raw.githubusercontent.com/nichtheuteleute/rack/main/doc/images/rack-banner.png)
+
 **Small, explicit dependency injection and controller lifecycle for Flutter.** No code generation, no dependencies.
 
 Rack does two things:
@@ -71,6 +73,8 @@ RackProvider(
 ---
 
 ### 2. A module that depends on another module
+
+![rack with many modules: dependencies as constructor arguments, any list order, optional modules, loud errors](https://raw.githubusercontent.com/nichtheuteleute/rack/main/doc/images/rack-modules.png)
 
 A module declares its dependencies as constructor arguments — that is all. The dependency is checked by the compiler, not looked up at runtime:
 
