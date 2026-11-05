@@ -21,19 +21,19 @@
   .pill{font-size:19px;font-weight:600;padding:9px 16px;border-radius:999px;
     border:1.5px solid rgba(94,234,212,.45);color:#c9fbf1;background:rgba(94,234,212,.07)}
 
-  .right{position:absolute;right:52px;top:40px;width:560px}
+  .right{position:absolute;right:52px;top:46px;width:560px}
   .card{background:linear-gradient(180deg,#1c2c4f,#152342);border:1px solid #2f4778;border-radius:14px;
-    box-shadow:0 14px 34px rgba(0,0,0,.40);padding:12px 18px 14px}
-  .head{display:flex;align-items:baseline;gap:10px;margin-bottom:8px}
+    box-shadow:0 14px 34px rgba(0,0,0,.40);padding:10px 18px 12px}
+  .head{display:flex;align-items:baseline;gap:10px;margin-bottom:6px}
   .num{font-size:12px;font-weight:700;color:#0b1326;background:#5eead4;border-radius:999px;
     width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center}
   .label{font-size:13px;font-weight:700;letter-spacing:1.4px;color:#9fb3d9}
   .hint{font-size:13px;color:#6f84ad}
-  pre{margin:0;font-family:"SF Mono",Menlo,monospace;font-size:14.5px;line-height:1.55;color:#c3cfe8}
+  pre{margin:0;font-family:"SF Mono",Menlo,monospace;font-size:13.5px;line-height:1.5;color:#c3cfe8}
   .k{color:#c792ea}.t{color:#7fb6ff}.s{color:#e8eefc}.c{color:#5d7096}
   .r{color:#5eead4;font-weight:600}
-  .link{height:22px;position:relative}
-  .link:after{content:"";position:absolute;left:44px;top:3px;width:2px;height:16px;background:#3a5a8c}
+  .link{height:14px;position:relative}
+  .link:after{content:"";position:absolute;left:44px;top:2px;width:2px;height:10px;background:#3a5a8c}
 </style></head><body>
 <div class="dots"></div>
 <div class="left">
@@ -48,10 +48,15 @@
 
 <div class="right">
   <div class="card">
-    <div class="head"><span class="num">1</span><span class="label">MODULE</span><span class="hint">holds your stores</span></div>
+    <div class="head"><span class="num">1</span><span class="label">MODULE</span><span class="hint">holds your stores, registered once at the root</span></div>
 <pre><span class="k">class</span> <span class="t">AppModule</span> <span class="k">extends</span> <span class="r">RackModule</span> {
   <span class="k">late final</span> <span class="s">notes</span> = <span class="r">use</span>(<span class="t">NotesStore</span>());
-}</pre>
+}
+
+<span class="k">void</span> <span class="s">main</span>() =&gt; <span class="s">runApp</span>(<span class="r">RackProvider</span>(
+      <span class="s">modules</span>: [<span class="t">AppModule</span>()],
+      <span class="s">builder</span>: () =&gt; <span class="k">const</span> <span class="t">NotesApp</span>(),
+    ));</pre>
   </div>
   <div class="link"></div>
   <div class="card">
@@ -67,7 +72,6 @@
 <pre><span class="k">class</span> <span class="t">NotesScreen</span> <span class="k">extends</span> <span class="r">RackWidget</span>&lt;<span class="t">NotesController</span>&gt; {
   <span class="t">NotesController</span> <span class="s">create</span>(<span class="t">Rack</span> rack) =&gt;
       <span class="t">NotesController</span>(<span class="r">rack.module</span>&lt;<span class="t">AppModule</span>&gt;().<span class="s">notes</span>);
-
   <span class="t">Widget</span> <span class="s">buildContent</span>(context, controller) =&gt; <span class="c">…</span>;
 }</pre>
   </div>
