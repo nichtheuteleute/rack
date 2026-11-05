@@ -44,15 +44,13 @@ class CounterStore implements Disposable {
 
 /// Infrastructure: created first, no dependencies.
 class StorageModule extends RackModule {
-  StorageModule() : super(dependsOn: const []);
-
   late final storage = use(CounterStorage());
 }
 
 /// Feature module: depends on [StorageModule] through its constructor and
 /// restores its state asynchronously before the app is shown.
 class CounterModule extends RackModule {
-  CounterModule(this.storage) : super(dependsOn: [storage]);
+  CounterModule(this.storage);
   final StorageModule storage;
 
   late final counter = use(CounterStore(storage.storage));

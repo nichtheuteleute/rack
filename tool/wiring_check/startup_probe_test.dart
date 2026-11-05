@@ -14,5 +14,8 @@ void main() {
     for (final t in tester.widgetList<Text>(find.byType(Text))) {
       debugPrint('PROBE TEXT: ${t.data}');
     }
+    for (final e in tester.widgetList<ErrorWidget>(find.byType(ErrorWidget))) {
+      debugPrint('PROBE ERROR: ${e.message.split('\n').first}');
+    }
   });
 }

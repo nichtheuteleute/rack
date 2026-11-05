@@ -6,31 +6,26 @@ Same notes app in four variants (`tool/agent_bench/variants`: rack, Riverpod, Bl
 
 ## Summary
 
-| variant | wiring steps | caught by the compiler | runtime error (crash or error screen) | silent wrong behaviour | not detected |
+| variant | wiring steps | caught by the compiler | runtime error at startup | silent wrong behaviour | not detected |
 |---|---|---|---|---|---|
-| **rack** (current: `dependsOn` required) | 5 | **3** | **1 (at startup, names the module)** | **0** | 1 latent (incomplete `dependsOn`) |
-| rack before `dependsOn` was required | 5 | 3 | 2 (one of them partly silent) | 0 | 0 |
-| Riverpod | **2** | 0 | 2 | **0** | **0** |
+| **rack** | 5 | **3** | **2** (both name the missing module) | **0** | **0** |
+| Riverpod | **2** | 0 | 2 (error screen) | **0** | **0** |
 | Bloc | 8 | 2 | 4 | 1 | 1 |
 | provider | 7 | 2 | 4 | 1 | 0 |
 
-Since [ADR 006](../../doc/decisions/006-required-depends-on.md) every rack module names its dependencies in the required `super(dependsOn: [...])`, and `RackProvider` registers a dependency that is not listed. Listing a dependency is therefore no longer a step that can be forgotten. A new step appeared instead: keeping `dependsOn` complete. The compiler enforces that it is given, not that it lists every constructor argument. The second rack row is the same variant before the change.
+rack as of [ADR 007](../../doc/decisions/007-creation-order.md): modules initialize in creation order, and using a module that no `RackProvider` provides throws with the module's name. Before that change, a module that was created and passed on but not listed ran without its `init()` and failed only when its own screen opened (partly silent).
 
 ## Per step
 
 | variant | forgotten step | outcome |
 |---|---|---|
-| rack | settings module not listed in `RackProvider` | **not a step anymore**: registered through `NotesModule`'s `dependsOn`, app works |
+| rack | settings module not listed in `RackProvider` | runtime **at startup**: `NotesModule.init() failed: SettingsModule is used, but no RackProvider provides it, so its init() never ran. Add it to RackProvider.modules.` |
 | rack | notes module not listed in `RackProvider` | runtime **at startup**: `No module of type NotesModule registered in Rack` |
 | rack | notes module does not get the settings module | **compile error** (constructor argument) |
 | rack | settings module does not get its storage | **compile error** |
 | rack | notes module does not get its storage | **compile error** |
-| rack | notes module's `dependsOn` omits the settings module | not detected — harmless here because `NotesModule.init()` does not read the settings; if it did, it could start before the settings are loaded |
-| rack | … and the settings module is not listed either | runtime, partly silent: settings never initialized; `No module of type SettingsModule registered in Rack` when the settings screen opens |
-| rack before ADR 006 | settings module not listed | runtime, partly silent (as in the row above) |
-| rack before ADR 006 | notes module not listed | runtime: `No module of type NotesModule registered in Rack` |
-| Riverpod | notes storage not overridden | runtime: error screen at startup (`ProviderException`) |
-| Riverpod | settings storage not overridden | runtime: error screen at startup (`ProviderException`) |
+| Riverpod | notes storage not overridden | runtime: error screen at startup (`Could not load: ProviderException`) |
+| Riverpod | settings storage not overridden | runtime: error screen at startup (`Could not load: ProviderException`) |
 | Bloc | notes storage not provided | runtime: `ProviderNotFoundException` |
 | Bloc | settings storage not provided | runtime: `ProviderNotFoundException` |
 | Bloc | `SettingsCubit` not provided | runtime: `ProviderNotFoundException` |
@@ -50,5 +45,5 @@ Since [ADR 006](../../doc/decisions/006-required-depends-on.md) every rack modul
 ## Reading
 
 - **Dependencies between features are where the approaches differ.** In rack the notes module takes the settings module as a constructor argument — forgetting it does not compile. In Bloc and provider the same dependency is a listener or proxy update that compiles fine when missing; the app then silently shows stale data. Riverpod has no such step at all: features reference each other's providers directly.
-- **In rack, every dependency between modules is compile-checked** (constructor arguments), and with the required `dependsOn` a dependency can no longer be left unregistered. What remains: a module nobody depends on but a screen looks up must be listed — forgetting it fails at startup with the module's name — and `dependsOn` has to be kept complete; an incomplete one is not detected and can let a module initialize before its dependency.
+- **In rack, every forgotten wiring step is either a compile error or fails at startup with the name of the missing module.** Dependencies between modules are constructor arguments; the module list is checked when a module is used. Nothing runs silently with unloaded data.
 - **Riverpod needs the least wiring** (2 steps, both overrides for injected storages). Its feature-to-feature references are compile-checked too, but implicit: you see them only by reading the providers' bodies.

@@ -12,7 +12,7 @@ State management is not Rack's job, and Rack has no dependencies besides Flutter
 
 - **Small enough to read completely.** About 160 lines of code in six classes (roughly 2,000 tokens). You, a reviewer or an AI coding agent can read the whole library instead of guessing how it works. For comparison: flutter_bloc + bloc ≈ 1,100 lines, get_it ≈ 2,300, provider ≈ 2,500, flutter_riverpod + riverpod ≈ 9,500.
 - **No dependencies, no code generation.** Only Flutter. No `build_runner`, no generated files to keep in sync, no version conflicts with the state library you choose.
-- **Wiring mistakes surface early.** Module dependencies are constructor arguments, so forgetting one is a compile error. We removed every wiring step, one at a time, from the same app built with rack, Riverpod, Bloc and provider: with rack, every dependency between modules was caught by the compiler, dependencies cannot be left unregistered, and the one remaining runtime case fails at startup with a message naming the missing module. With Bloc and provider, a forgotten link between two features compiled fine and the app silently showed stale data ([details](tool/wiring_check/RESULTS.md)).
+- **Wiring mistakes surface early.** Module dependencies are constructor arguments, so forgetting one is a compile error; a module that is used but not provided fails at startup with its name. We removed every wiring step, one at a time, from the same app built with rack, Riverpod, Bloc and provider: with rack, 3 of 5 were compile errors and 2 failed at startup naming the missing module — nothing silent. With Bloc and provider, a forgotten link between two features compiled fine and the app silently showed stale data ([details](tool/wiring_check/RESULTS.md)).
 - **Negligible overhead.** Mounting a screen with its controller costs about 0.8 µs — 0.15 µs more than a hand-written `StatefulWidget`, and about 40 % less than the usual provider pattern ([benchmark](tool/benchmark/README.md)).
 - **Easy for AI coding agents to pick up.** The whole library fits into about 2,000 tokens. In a benchmark of 90 Claude Code runs on the same app built with rack, Riverpod and Bloc, agents solved all 30 rack tasks without ever opening rack's documentation — the project's own README was enough. rack did not make agents cheaper, though: token cost was on par with Riverpod on small changes and higher when a new dependency between features had to be wired ([method and results](tool/agent_bench/RESULTS.md)).
 
@@ -49,13 +49,9 @@ A runnable app (using signals) is in [`example/`](example/lib/main.dart).
 
 ```dart
 class SettingsModule extends RackModule {
-  SettingsModule() : super(dependsOn: const []);
-
   late final settings = use(SettingsStore());
 }
 ```
-
-Every module states the modules it depends on in `dependsOn` — `const []` if none. It is a required constructor parameter: a module without it does not compile.
 
 `late final` makes the store lazy and single-instance: it is created on first access, and every later access returns the same instance. `use()` registers it for disposal — if it implements `Disposable`, it is disposed when the module is disposed. A store that is never read is never created.
 
@@ -76,11 +72,11 @@ RackProvider(
 
 ### 2. A module that depends on another module
 
-A module takes the modules it needs as constructor arguments and names them in `dependsOn`, right next to them. The dependency is checked by the compiler, not looked up at runtime:
+A module declares its dependencies as constructor arguments — that is all. The dependency is checked by the compiler, not looked up at runtime:
 
 ```dart
 class FilesModule extends RackModule {
-  FilesModule(this.settings) : super(dependsOn: [settings]);
+  FilesModule(this.settings);
   final SettingsModule settings;
 
   late final files = use(FilesStore(settings: settings.settings));
@@ -92,12 +88,12 @@ final settings = SettingsModule();
 final files = FilesModule(settings);
 
 RackProvider(
-  modules: [files], // settings is registered through FilesModule.dependsOn
+  modules: [settings, files], // every module, in any order
   builder: () => const MyApp(),
 )
 ```
 
-`RackProvider` registers every module named in `dependsOn` that is not listed (and not provided by a parent provider) itself: it is initialized, can be looked up with `rack.module<T>()` and is disposed with the provider. So a dependency can never be left uninitialized. Listing it as well does no harm; list order does not matter. Two different instances of the same module type in one provider — usually a module created twice by mistake — are reported through `errorBuilder`.
+List every module, including those that are only passed to other modules: the provider initializes and disposes exactly the modules it is given. A module that is used but not listed is reported as soon as it is used (`SettingsModule is used, but no RackProvider provides it …`), so a forgotten entry fails at startup instead of running with unloaded data. Two different instances of one module type, or one module listed in two providers, are reported through `errorBuilder` as well.
 
 ---
 
@@ -107,7 +103,7 @@ Override `init()` for work that needs async I/O before the app is usable (auth t
 
 ```dart
 class FilesModule extends RackModule {
-  FilesModule(this.settings) : super(dependsOn: [settings]);
+  FilesModule(this.settings);
   final SettingsModule settings;
 
   late final FileSource source;
@@ -125,7 +121,7 @@ class FilesModule extends RackModule {
 }
 ```
 
-A module's `init()` starts as soon as the `init()` of every module in its `dependsOn` has completed — `FilesModule.init()` above can rely on the settings being loaded. Modules that do not depend on each other initialize in parallel: five independent modules that each load for 50 ms take 50 ms, not 250 ms.
+Modules are initialized one after another, **in the order they were created**. A dependency has to exist before it can be passed to a constructor, so it is always created — and initialized — first: `FilesModule.init()` above can rely on the settings being loaded, whatever the list order. Startup time is the sum of all `init()` calls; if two loads in one module are independent, run them together with `Future.wait`, and start network work after the first frame instead of in `init()`.
 
 ---
 
@@ -203,8 +199,6 @@ Some services belong to a screen, not the whole app — a search store, a form s
 
 ```dart
 class EditorModule extends RackModule {
-  EditorModule() : super(dependsOn: const []);
-
   late final search = use(EditorSearchStore());
 }
 
@@ -255,9 +249,7 @@ For widget tests, wrap the widget in a `RackProvider` with the modules it looks 
 
 ```dart
 class FilesModule extends RackModule {
-  FilesModule(this.settings, {FileSource? source})
-      : _override = source,
-        super(dependsOn: [settings]);
+  FilesModule(this.settings, {FileSource? source}) : _override = source;
   final SettingsModule settings;
   final FileSource? _override;
 
@@ -365,21 +357,20 @@ Rack controllers are plain Dart objects. A button tap is a method call. If you n
 ## Rules
 
 - **One module per type.** A `RackProvider` holds one instance per module runtime type; two different instances are an error. Nest a `RackProvider` to scope modules to a subtree.
-- **Dependencies go through the constructor — and into `dependsOn`.** A module takes the modules it needs as constructor arguments and names exactly those in `super(dependsOn: [...])`. The compiler enforces that `dependsOn` is given; keeping it complete is on you, so write it on the same line as the constructor.
+- **Dependencies go through the constructor.** A module takes the modules it needs as constructor arguments. List every module in `RackProvider`, in any order.
 - **Create modules once.** Pass instances that outlive rebuilds — never construct them inline in a `build` method.
 - **No business logic in widgets.** Widgets call controller methods; controllers call stores. Never the other way.
 - **Controllers get stores, not other controllers.** Shared state belongs in a store.
 - **Every reactive read in the UI is wrapped.** Read signals (or notifiers, streams) only inside a builder or a reactive widget like `SignalWidget` — Rack does not track reads, so an unwrapped read never rebuilds.
-- **Wrap module services in `use()` and implement `Disposable` on anything that needs cleanup.** Module services are disposed in reverse creation order, modules in reverse dependency order, controllers when their widget unmounts.
+- **Wrap module services in `use()` and implement `Disposable` on anything that needs cleanup.** Module services are disposed in reverse creation order, modules in reverse creation order, controllers when their widget unmounts.
 
 ## Decisions
 
 - [ADR 001: Live-Lookup statt Snapshot im init()-Rack](doc/decisions/001-live-lookup-in-init.md) — superseded
 - [ADR 002: Module als typisierte Container](doc/decisions/002-typed-modules.md)
 - [ADR 003: Keine Abhängigkeit zu signals](doc/decisions/003-no-signals-dependency.md)
-- [ADR 004: Parallele Initialisierung über `dependsOn`](doc/decisions/004-parallel-init.md)
-- [ADR 005: Deklarierte Abhängigkeiten automatisch registrieren](doc/decisions/005-auto-register-dependencies.md)
-- [ADR 006: `dependsOn` ist Pflicht](doc/decisions/006-required-depends-on.md)
+- [ADR 004–006: Parallele Initialisierung und `dependsOn`](doc/decisions/004-parallel-init.md) — superseded
+- [ADR 007: Initialisierung in Erzeugungsreihenfolge, ohne `dependsOn`](doc/decisions/007-creation-order.md)
 
 ## License
 

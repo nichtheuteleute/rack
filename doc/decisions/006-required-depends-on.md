@@ -1,6 +1,6 @@
 # ADR 006: `dependsOn` ist Pflicht
 
-**Status:** Akzeptiert. Ersetzt den optionalen Getter aus [ADR 004](004-parallel-init.md) und macht [ADR 005](005-auto-register-dependencies.md) für alle Module wirksam.
+**Status:** Ersetzt durch [ADR 007](007-creation-order.md).
 
 ## Context
 

@@ -25,13 +25,6 @@ MUTATIONS = {
          "lib/main.dart",
          "NotesModule(_settings, storage: widget.notesStorage)",
          "NotesModule(_settings)"),
-        ("notes module's dependsOn omits the settings module",
-         "lib/features/notes/notes_module.dart",
-         "super(dependsOn: [settings])", "super(dependsOn: const [])"),
-        ("notes module's dependsOn omits settings and settings is not listed",
-         "lib/features/notes/notes_module.dart",
-         "super(dependsOn: [settings])", "super(dependsOn: const [])",
-         ("lib/main.dart", "modules: [_settings, _notes],", "modules: [_notes],")),
     ],
     "riverpod": [
         ("root: notes storage not overridden",
@@ -149,7 +142,5 @@ MUTATIONS = {
     ],
 }
 
-# No variant needs preparation since dependsOn became required (ADR 006); the
-# rack variant declares its dependencies itself.
 VARIANT_SOURCE = {}
 PREPARE = {}

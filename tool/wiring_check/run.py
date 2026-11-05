@@ -43,6 +43,10 @@ def classify(analyze_out, test_code, test_out):
                 if l.strip().startswith(("warning •", "info •"))]
     if errors:
         return "compile error", errors[0], warnings
+    # An error the app shows right at startup is the most telling detail.
+    startup = re.search(r"PROBE ERROR: (.*)", test_out)
+    if startup:
+        return "runtime error", "at startup: " + startup.group(1).strip(), warnings
     thrown = re.findall(r"The following (\S+) was thrown[^\n]*\n(.*)", test_out)
     # "Bad state: No element" comes from flutter_test finders (a widget the
     # test expects is missing), not from the app.

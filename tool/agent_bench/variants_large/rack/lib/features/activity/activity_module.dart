@@ -8,8 +8,7 @@ import 'activity_store.dart';
 /// it records and loads the stored log in [init].
 class ActivityModule extends RackModule {
   ActivityModule(this.notes, {required ActivityStorage storage})
-      : _storage = storage,
-        super(dependsOn: [notes]);
+      : _storage = storage;
 
   final NotesModule notes;
   final ActivityStorage _storage;

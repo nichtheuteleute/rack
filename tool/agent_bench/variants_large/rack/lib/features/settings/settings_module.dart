@@ -5,9 +5,7 @@ import 'settings_store.dart';
 
 /// Provides the [SettingsStore]. Loads the stored settings in [init].
 class SettingsModule extends RackModule {
-  SettingsModule({required SettingsStorage storage})
-      : _storage = storage,
-        super(dependsOn: const []);
+  SettingsModule({required SettingsStorage storage}) : _storage = storage;
 
   final SettingsStorage _storage;
 

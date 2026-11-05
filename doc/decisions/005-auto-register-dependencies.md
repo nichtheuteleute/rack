@@ -1,6 +1,6 @@
 # ADR 005: Deklarierte Abhängigkeiten automatisch registrieren
 
-**Status:** Teilweise ersetzt durch [ADR 006](006-required-depends-on.md): `dependsOn` ist Pflicht, der Default `null` (Listenreihenfolge) entfällt.
+**Status:** Ersetzt durch [ADR 007](007-creation-order.md).
 
 ## Context
 

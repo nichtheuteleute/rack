@@ -5,24 +5,24 @@ import '../module/rack_module.dart';
 /// Composition root: initializes [modules] and provides them to the
 /// subtree built by [builder].
 ///
-/// Each module's `init()` runs as soon as the modules in its
-/// [RackModule.dependsOn] have finished theirs; independent modules
-/// initialize in parallel. Until all of them have completed, [loading] is
-/// shown; if one throws or the dependencies form a cycle, [errorBuilder] is
-/// shown. The modules are disposed in reverse order when the provider
-/// unmounts.
+/// Modules are initialized one after another in the order they were created.
+/// A module's dependencies are passed to its constructor, so they always
+/// exist — and are initialized — before it. Until all `init()` calls have
+/// completed, [loading] is shown; if one throws, [errorBuilder] is shown. The
+/// modules are disposed in reverse order when the provider unmounts.
 ///
-/// A module named in some module's [RackModule.dependsOn] is registered
-/// automatically if it is neither in [modules] nor provided by a parent
-/// provider, so a dependency cannot be left uninitialized. Two different
-/// instances of the same module type are reported as an error.
+/// Every module that is used must be provided: a module that was created and
+/// passed to another module but is not listed here is reported with a
+/// [StateError] as soon as it is used. Two different instances of one module
+/// type, or a module already provided by another `RackProvider`, are reported
+/// through [errorBuilder].
 ///
 /// Providers can be nested: a nested provider sees its parent's modules, and
 /// its own modules replace parent modules of the same type.
 class RackProvider extends StatefulWidget {
-  /// The modules to provide, already instantiated, in any order. Modules
-  /// reached only through [RackModule.dependsOn] need not be listed — list
-  /// the modules that widgets look up.
+  /// The modules to provide, already instantiated, in any order. List every
+  /// module the app uses, including those that are only passed to other
+  /// modules.
   ///
   /// Read once when the provider mounts: the provider owns these instances
   /// and disposes them on unmount. Modules passed on a later rebuild are
@@ -52,78 +52,40 @@ class RackProvider extends StatefulWidget {
 }
 
 class _RackProviderState extends State<RackProvider> {
-  /// The listed modules plus the dependencies registered automatically.
-  /// Read once when the provider mounts; the provider owns all of them.
-  late List<RackModule> _modules = List.unmodifiable(widget.modules);
+  /// The listed modules in creation order. The provider owns them.
+  List<RackModule> _modules = const [];
   bool _initStarted = false;
   bool _initialized = false;
   Object? _initError;
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (!_initStarted) {
-      _initStarted = true;
-      _setup();
-    }
-  }
-
-  Future<void> _setup() async {
+  void initState() {
+    super.initState();
+    setProviderMounted(true);
+    final modules = widget.modules.toSet().toList()
+      ..sort((a, b) => creationIndexOf(a).compareTo(creationIndexOf(b)));
     try {
-      final parent = context.getInheritedWidgetOfExactType<RackInherited>();
-      _modules = List.unmodifiable(
-        _withDependencies(parent?.modules.values.toSet() ?? const {}),
-      );
-      _checkOneInstancePerType();
-      final order = _initOrder();
-      final done = <RackModule, Future<void>>{};
-      for (final module in order) {
-        final deps = _dependenciesOf(module);
-        done[module] = Future.wait([for (final d in deps) done[d]!])
-            .then((_) => _init(module));
-      }
-      await Future.wait(done.values);
-      if (mounted) setState(() => _initialized = true);
+      _check(modules);
     } catch (e) {
-      if (mounted) setState(() => _initError = e);
+      _initError = e;
+      return;
     }
-  }
-
-  Future<void> _init(RackModule module) async {
-    if (!mounted) return;
-    try {
-      await module.init();
-    } catch (e) {
-      throw StateError('${module.runtimeType}.init() failed: $e');
-    }
-  }
-
-  /// The listed modules plus every module they declare in
-  /// [RackModule.dependsOn] (transitively) that is neither listed nor
-  /// provided by a parent provider. A dependency is placed right before the
-  /// first module that needs it.
-  List<RackModule> _withDependencies(Set<RackModule> fromParent) {
-    final listed = widget.modules.toSet();
-    final result = <RackModule>[];
-    final visiting = <RackModule>{};
-    void add(RackModule module) {
-      if (result.contains(module) || !visiting.add(module)) return;
-      for (final dep in module.dependsOn) {
-        if (!listed.contains(dep) && !fromParent.contains(dep)) add(dep);
-      }
-      visiting.remove(module);
-      result.add(module);
-    }
-
-    widget.modules.forEach(add);
-    return result;
-  }
-
-  /// Two different instances of one module type would make lookups by type
-  /// ambiguous — usually a module was created twice by mistake.
-  void _checkOneInstancePerType() {
-    final byType = <Type, RackModule>{};
+    _modules = List.unmodifiable(modules);
     for (final module in _modules) {
+      setProvided(module, true);
+    }
+  }
+
+  /// Reports wiring mistakes before anything is initialized.
+  void _check(List<RackModule> modules) {
+    final byType = <Type, RackModule>{};
+    for (final module in modules) {
+      if (isProvided(module)) {
+        throw StateError(
+          '${module.runtimeType} is already provided by another '
+          'RackProvider. List each module in one provider only.',
+        );
+      }
       if (byType.containsKey(module.runtimeType)) {
         throw StateError(
           'Two different ${module.runtimeType} instances in one RackProvider. '
@@ -135,42 +97,38 @@ class _RackProviderState extends State<RackProvider> {
     }
   }
 
-  /// The modules of this provider that [module] waits for. Dependencies
-  /// from a parent provider are already initialized.
-  List<RackModule> _dependenciesOf(RackModule module) => [
-        for (final dep in module.dependsOn)
-          if (_modules.contains(dep)) dep,
-      ];
-
-  /// [_modules] sorted so that every module comes after its dependencies.
-  /// Throws a [StateError] if the dependencies form a cycle.
-  List<RackModule> _initOrder() {
-    final order = <RackModule>[];
-    final visiting = <RackModule>[];
-    void visit(RackModule module) {
-      if (order.contains(module)) return;
-      if (visiting.contains(module)) {
-        final cycle = [
-          ...visiting.sublist(visiting.indexOf(module)),
-          module,
-        ].map((m) => m.runtimeType).join(' -> ');
-        throw StateError('Module dependencies form a cycle: $cycle');
-      }
-      visiting.add(module);
-      _dependenciesOf(module).forEach(visit);
-      visiting.removeLast();
-      order.add(module);
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_initStarted && _initError == null) {
+      _initStarted = true;
+      _setup();
     }
+  }
 
-    _modules.forEach(visit);
-    return order;
+  Future<void> _setup() async {
+    try {
+      for (final module in _modules) {
+        if (!mounted) return;
+        try {
+          await module.init();
+        } catch (e) {
+          throw StateError('${module.runtimeType}.init() failed: $e');
+        }
+      }
+      if (mounted) setState(() => _initialized = true);
+    } catch (e) {
+      if (mounted) setState(() => _initError = e);
+    }
   }
 
   @override
   void dispose() {
     for (final module in _modules.reversed) {
+      setProvided(module, false);
       module.dispose();
     }
+    setProviderMounted(false);
     super.dispose();
   }
 

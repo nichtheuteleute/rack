@@ -2,14 +2,14 @@
   "rack": [
     {
       "step": "root: settings module not listed in RackProvider",
-      "result": "undetected",
-      "detail": "",
+      "result": "runtime error",
+      "detail": "at startup: Bad state: NotesModule.init() failed: Bad state: SettingsModule is used, but no RackProvider provides it, so its init() never ran. Add it to RackProvider.modules.",
       "analyzer_hints": 0
     },
     {
       "step": "root: notes module not listed in RackProvider",
       "result": "runtime error",
-      "detail": "StateError: Bad state: No module of type NotesModule registered in Rack",
+      "detail": "at startup: Bad state: No module of type NotesModule registered in Rack",
       "analyzer_hints": 1
     },
     {
@@ -28,18 +28,6 @@
       "step": "notes module does not get its storage",
       "result": "compile error",
       "detail": "error \u2022 The named parameter 'storage' is required, but there's no corresponding argument. Try adding the required argument \u2022 lib/main.dart:33:23 \u2022 missing_required_argument",
-      "analyzer_hints": 0
-    },
-    {
-      "step": "notes module's dependsOn omits the settings module",
-      "result": "undetected",
-      "detail": "",
-      "analyzer_hints": 0
-    },
-    {
-      "step": "notes module's dependsOn omits settings and settings is not listed",
-      "result": "runtime error",
-      "detail": "StateError: Bad state: No module of type SettingsModule registered in Rack",
       "analyzer_hints": 0
     }
   ],
@@ -61,19 +49,19 @@
     {
       "step": "root: notes storage not provided",
       "result": "runtime error",
-      "detail": "ProviderNotFoundException: Error: Could not find the correct Provider<NotesStorage> above this",
+      "detail": "at startup: Error: Could not find the correct Provider<NotesStorage> above this _InheritedProviderScope<NotesBloc?> Widget",
       "analyzer_hints": 0
     },
     {
       "step": "root: settings storage not provided",
       "result": "runtime error",
-      "detail": "ProviderNotFoundException: _InheritedProviderScope<NotesBloc?>(value: <not yet loaded>):",
+      "detail": "at startup: Error: Could not find the correct Provider<SettingsStorage> above this _InheritedProviderScope<SettingsCubit?> Widget",
       "analyzer_hints": 0
     },
     {
       "step": "root: SettingsCubit not provided",
       "result": "runtime error",
-      "detail": "ProviderNotFoundException: _InheritedProviderScope<NotesBloc?>(value: <not yet loaded>):",
+      "detail": "at startup: Error: Could not find the correct Provider<SettingsCubit> above this BlocListener<SettingsCubit, SettingsState> Widget",
       "analyzer_hints": 1
     },
     {
@@ -85,7 +73,7 @@
     {
       "step": "NotesBloc not provided on the notes page",
       "result": "runtime error",
-      "detail": "ProviderNotFoundException: Error: Could not find the correct Provider<NotesBloc> above this NotesView Widget",
+      "detail": "at startup: Error: Could not find the correct Provider<NotesBloc> above this NotesView Widget",
       "analyzer_hints": 1
     },
     {
@@ -111,25 +99,25 @@
     {
       "step": "root: notes storage not provided",
       "result": "runtime error",
-      "detail": "ProviderNotFoundException: [_InheritedProviderScope<SettingsModel?>]):",
+      "detail": "at startup: Bad state: Tried to read a provider that threw during the creation of its value.",
       "analyzer_hints": 0
     },
     {
       "step": "root: settings storage not provided",
       "result": "runtime error",
-      "detail": "ProviderNotFoundException: Error: Could not find the correct Provider<SettingsStorage> above this",
+      "detail": "at startup: Error: Could not find the correct Provider<SettingsStorage> above this _InheritedProviderScope<SettingsModel?> Widget",
       "analyzer_hints": 0
     },
     {
       "step": "root: SettingsModel not provided",
       "result": "runtime error",
-      "detail": "ProviderNotFoundException: Error: Could not find the correct Provider<SettingsModel> above this _Home Widget",
+      "detail": "at startup: Error: Could not find the correct Provider<SettingsModel> above this _Home Widget",
       "analyzer_hints": 0
     },
     {
       "step": "root: NotesModel not provided",
       "result": "runtime error",
-      "detail": "ProviderNotFoundException: [_InheritedProviderScope<SettingsModel?>]):",
+      "detail": "at startup: Error: Could not find the correct Provider<NotesModel> above this _Home Widget",
       "analyzer_hints": 0
     },
     {

@@ -5,12 +5,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:rack/rack.dart';
 
 class _ValueModule extends RackModule {
-  _ValueModule(this.value) : super(dependsOn: const []);
+  _ValueModule(this.value);
   final String value;
 }
 
 class _SlowModule extends RackModule {
-  _SlowModule(this._completer) : super(dependsOn: const []);
+  _SlowModule(this._completer);
   final Completer<void> _completer;
 
   @override
@@ -18,14 +18,13 @@ class _SlowModule extends RackModule {
 }
 
 class _ThrowingModule extends RackModule {
-  _ThrowingModule() : super(dependsOn: const []);
-
   @override
   Future<void> init() async => throw Exception('boom');
 }
 
-class _DisposeOrderModule extends RackModule {
-  _DisposeOrderModule(this._log, this.tag) : super(dependsOn: const []);
+/// The type argument only gives each instance its own module type.
+class _DisposeOrderModule<T> extends RackModule {
+  _DisposeOrderModule(this._log, this.tag);
   final List<String> _log;
   final String tag;
 
@@ -36,83 +35,45 @@ class _DisposeOrderModule extends RackModule {
   }
 }
 
-/// Records when its init starts; finishes when [finish] is called. The type
-/// argument only gives each instance its own module type.
-class _TrackedModule<T> extends RackModule {
-  _TrackedModule(this.name, this.started, {List<RackModule> deps = const []})
-      : super(dependsOn: deps);
+class _A {}
+
+class _B {}
+
+/// Logs when its init starts; finishes when [finish] is called.
+class _StepModule<T> extends RackModule {
+  _StepModule(this.name, this.log);
   final String name;
-  final List<String> started;
+  final List<String> log;
   final _completer = Completer<void>();
 
   void finish() => _completer.complete();
 
   @override
   Future<void> init() {
-    started.add(name);
+    log.add(name);
     return _completer.future;
   }
 }
 
-class _FailingModule extends RackModule {
-  _FailingModule() : super(dependsOn: const []);
+class _Store {}
+
+class _SettingsModule extends RackModule {
+  late final store = use(_Store());
+  bool loaded = false;
 
   @override
-  Future<void> init() async => throw Exception('boom');
+  Future<void> init() async => loaded = true;
 }
 
-/// Cycles cannot be built through constructors; a subclass overriding
-/// [RackModule.dependsOn] could still create one.
-class _CycleA extends RackModule {
-  _CycleA() : super(dependsOn: const []);
-  late RackModule other;
-  @override
-  List<RackModule> get dependsOn => [other];
-}
-
-class _CycleB extends RackModule {
-  _CycleB(this.other) : super(dependsOn: const []);
-  final RackModule other;
-  @override
-  List<RackModule> get dependsOn => [other];
-}
-
-class _A {}
-
-class _B {}
-
-class _C {}
-
-class _Child {}
-
-class _Dependent {}
-
-class _Files {}
-
-class _Other {}
-
-class _Parent {}
-
-class _Settings {}
-
-class _Notes {}
-
-class _Storage {}
-
-/// Logs init and dispose.
-class _LoggingModule<T> extends RackModule {
-  _LoggingModule(this.name, this.log, List<RackModule> deps)
-      : super(dependsOn: deps);
-  final String name;
-  final List<String> log;
+/// Reads its dependency's store during init, like a real feature module.
+class _NotesModule extends RackModule {
+  _NotesModule(this.settings);
+  final _SettingsModule settings;
 
   @override
-  Future<void> init() async => log.add('init $name');
-
-  @override
-  void dispose() {
-    log.add('dispose $name');
-    super.dispose();
+  Future<void> init() async {
+    settings.store;
+    if (!settings.loaded) throw StateError('settings not loaded yet');
   }
 }
 
@@ -231,17 +192,16 @@ void main() {
       expect(capturedError.toString(), contains('_ThrowingModule'));
     });
 
-    testWidgets('disposes modules in reverse list order on unmount',
+    testWidgets('disposes modules in reverse creation order on unmount',
         (tester) async {
       final log = <String>[];
+      final first = _DisposeOrderModule<_A>(log, 'first');
+      final second = _DisposeOrderModule<_B>(log, 'second');
 
       await tester.pumpWidget(
         _wrap(
           RackProvider(
-            modules: [
-              _DisposeOrderModule(log, 'first'),
-              _DisposeOrderModule(log, 'second'),
-            ],
+            modules: [second, first], // list order does not matter
             builder: () => const SizedBox.shrink(),
           ),
         ),
@@ -391,170 +351,59 @@ void main() {
   });
 
   group('RackProvider init order', () {
-    Widget provider(List<RackModule> modules,
-            {void Function(Object)? onError}) =>
-        _wrap(RackProvider(
-          modules: modules,
-          builder: () => const Text('ready'),
-          errorBuilder: (e) {
-            onError?.call(e);
-            return const Text('error');
-          },
-        ));
-
-    testWidgets('modules with dependsOn: [] initialize in parallel',
+    testWidgets('initializes one module after another in creation order',
         (tester) async {
-      final started = <String>[];
-      final a = _TrackedModule<_A>('a', started, deps: const []);
-      final b = _TrackedModule<_B>('b', started, deps: const []);
-      final c = _TrackedModule<_C>('c', started, deps: const []);
-      await tester.pumpWidget(provider([a, b, c]));
-      await tester.pump();
-      expect(started, ['a', 'b', 'c']);
+      final log = <String>[];
+      final settings = _StepModule<_A>('settings', log);
+      final notes = _StepModule<_B>('notes', log);
 
-      c.finish();
-      b.finish();
+      await tester.pumpWidget(_wrap(RackProvider(
+        modules: [notes, settings], // listed in the "wrong" order
+        builder: () => const Text('ready'),
+      )));
       await tester.pump();
-      expect(find.text('ready'), findsNothing);
-      a.finish();
-      await tester.pumpAndSettle();
-      expect(find.text('ready'), findsOneWidget);
-    });
-
-    testWidgets('a module waits for the modules it depends on', (tester) async {
-      final started = <String>[];
-      final settings =
-          _TrackedModule<_Settings>('settings', started, deps: const []);
-      final other = _TrackedModule<_Other>('other', started, deps: const []);
-      final files = _TrackedModule<_Files>('files', started, deps: [settings]);
-      // Listed before its dependency on purpose: order does not matter
-      // once dependencies are declared.
-      await tester.pumpWidget(provider([files, settings, other]));
-      await tester.pump();
-      expect(started, unorderedEquals(['settings', 'other']));
-
-      other.finish();
-      await tester.pump();
-      expect(started, isNot(contains('files')));
+      expect(log, ['settings']);
 
       settings.finish();
       await tester.pump();
-      expect(started.last, 'files');
+      expect(log, ['settings', 'notes']);
+      expect(find.text('ready'), findsNothing);
 
-      files.finish();
+      notes.finish();
       await tester.pumpAndSettle();
       expect(find.text('ready'), findsOneWidget);
     });
 
-    testWidgets('a dependency provided by a parent provider is reused',
+    testWidgets('a dependency is always initialized before its dependent',
         (tester) async {
-      final started = <String>[];
-      final parentModule =
-          _TrackedModule<_Parent>('parent', started, deps: const []);
-      final child =
-          _TrackedModule<_Child>('child', started, deps: [parentModule]);
-      parentModule.finish();
+      Object? error;
+      final notes = _NotesModule(_SettingsModule()); // created inline
+      final settings = notes.settings;
+
       await tester.pumpWidget(_wrap(RackProvider(
-        modules: [parentModule],
-        builder: () => RackProvider(
-          modules: [child],
-          builder: () => const Text('ready'),
-        ),
+        modules: [notes, settings],
+        builder: () => const Text('ready'),
+        errorBuilder: (e) {
+          error = e;
+          return const Text('error');
+        },
       )));
-      await tester.pump();
-      await tester.pump();
-      expect(started, ['parent', 'child']);
-      child.finish();
       await tester.pumpAndSettle();
+
+      expect(error, isNull);
       expect(find.text('ready'), findsOneWidget);
-      expect(started, ['parent', 'child']);
-    });
-
-    testWidgets('a failing dependency stops its dependents and is reported',
-        (tester) async {
-      final started = <String>[];
-      final failing = _FailingModule();
-      final dependent =
-          _TrackedModule<_Dependent>('dependent', started, deps: [failing]);
-      Object? error;
-      await tester.pumpWidget(
-          provider([failing, dependent], onError: (e) => error = e));
-      await tester.pumpAndSettle();
-
-      expect(started, isEmpty);
-      expect(find.text('error'), findsOneWidget);
-      expect(error.toString(), contains('_FailingModule.init() failed'));
-    });
-
-    testWidgets('a dependency cycle is reported as an error', (tester) async {
-      final a = _CycleA();
-      final b = _CycleB(a);
-      a.other = b;
-      Object? error;
-      await tester.pumpWidget(provider([a, b], onError: (e) => error = e));
-      await tester.pumpAndSettle();
-
-      expect(find.text('error'), findsOneWidget);
-      expect(error.toString(), contains('cycle'));
-      expect(error.toString(), contains('_CycleA -> _CycleB -> _CycleA'));
     });
   });
 
-  group('RackProvider dependency registration', () {
-    testWidgets(
-        'an unlisted dependency is registered, initialized first, '
-        'provided and disposed', (tester) async {
-      final log = <String>[];
-      final settings = _LoggingModule<_Settings>('settings', log, const []);
-      final notes = _LoggingModule<_Notes>('notes', log, [settings]);
-
-      late _LoggingModule<_Settings> looked;
-      await tester.pumpWidget(_wrap(RackProvider(
-        modules: [notes], // settings is not listed
-        builder: () => _LookupWidget(
-          (rack) => looked = rack.module<_LoggingModule<_Settings>>(),
-        ),
-      )));
-      await tester.pumpAndSettle();
-
-      expect(log, ['init settings', 'init notes']);
-      expect(looked, same(settings));
-
-      await tester.pumpWidget(_wrap(const SizedBox.shrink()));
-      expect(log, [
-        'init settings',
-        'init notes',
-        'dispose notes',
-        'dispose settings',
-      ]);
-    });
-
-    testWidgets('dependencies are registered transitively', (tester) async {
-      final log = <String>[];
-      final storage = _LoggingModule<_Storage>('storage', log, const []);
-      final settings = _LoggingModule<_Settings>('settings', log, [storage]);
-      final notes = _LoggingModule<_Notes>('notes', log, [settings]);
-
-      await tester.pumpWidget(_wrap(RackProvider(
-        modules: [notes],
-        builder: () => const Text('ready'),
-      )));
-      await tester.pumpAndSettle();
-
-      expect(log, ['init storage', 'init settings', 'init notes']);
-      expect(find.text('ready'), findsOneWidget);
-    });
-
-    testWidgets('two instances of one module type are reported',
+  group('RackProvider wiring checks', () {
+    testWidgets('a used module that is not provided is reported',
         (tester) async {
-      final log = <String>[];
-      final settingsA = _LoggingModule<_Settings>('a', log, const []);
-      final settingsB = _LoggingModule<_Settings>('b', log, const []);
-      final notes = _LoggingModule<_Notes>('notes', log, [settingsB]);
       Object? error;
+      final settings = _SettingsModule();
+      final notes = _NotesModule(settings);
 
       await tester.pumpWidget(_wrap(RackProvider(
-        modules: [settingsA, notes],
+        modules: [notes], // settings forgotten
         builder: () => const Text('ready'),
         errorBuilder: (e) {
           error = e;
@@ -564,8 +413,80 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('error'), findsOneWidget);
-      expect(error.toString(), contains('Two different'));
-      expect(log, isEmpty);
+      expect(error.toString(), contains('_SettingsModule is used'));
+      expect(error.toString(), contains('Add it to RackProvider.modules'));
+    });
+
+    testWidgets('a module provided by a parent provider can be used',
+        (tester) async {
+      final settings = _SettingsModule();
+      final notes = _NotesModule(settings);
+
+      await tester.pumpWidget(_wrap(RackProvider(
+        modules: [settings],
+        builder: () => RackProvider(
+          modules: [notes],
+          builder: () => const Text('ready'),
+        ),
+      )));
+      await tester.pumpAndSettle();
+
+      expect(find.text('ready'), findsOneWidget);
+    });
+
+    testWidgets('a module can be used without any provider, e.g. in tests',
+        (tester) async {
+      expect(_SettingsModule().store, isA<_Store>());
+    });
+
+    testWidgets('two instances of one module type are reported',
+        (tester) async {
+      Object? error;
+      await tester.pumpWidget(_wrap(RackProvider(
+        modules: [_SettingsModule(), _SettingsModule()],
+        builder: () => const Text('ready'),
+        errorBuilder: (e) {
+          error = e;
+          return const Text('error');
+        },
+      )));
+      await tester.pumpAndSettle();
+
+      expect(find.text('error'), findsOneWidget);
+      expect(error.toString(), contains('Two different _SettingsModule'));
+    });
+
+    testWidgets('a module listed in two providers is reported', (tester) async {
+      Object? error;
+      final settings = _SettingsModule();
+      await tester.pumpWidget(_wrap(RackProvider(
+        modules: [settings],
+        builder: () => RackProvider(
+          modules: [settings],
+          builder: () => const Text('ready'),
+          errorBuilder: (e) {
+            error = e;
+            return const Text('error');
+          },
+        ),
+      )));
+      await tester.pumpAndSettle();
+
+      expect(find.text('error'), findsOneWidget);
+      expect(error.toString(), contains('already provided'));
+    });
+
+    testWidgets('a lookup finds the module after the wiring checks',
+        (tester) async {
+      final settings = _SettingsModule();
+      late _SettingsModule found;
+      await tester.pumpWidget(_wrap(RackProvider(
+        modules: [settings],
+        builder: () =>
+            _LookupWidget((rack) => found = rack.module<_SettingsModule>()),
+      )));
+      await tester.pumpAndSettle();
+      expect(found, same(settings));
     });
   });
 }
