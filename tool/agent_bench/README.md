@@ -20,6 +20,8 @@ python3 -I tool/agent_bench/report.py
 python3 -I tool/agent_bench/code_size.py tool/agent_bench/variants/*
 ```
 
+**Note:** the runs were made with rack before `dependsOn` became a required constructor parameter (ADR 006). Afterwards the rack variants were migrated (one `super(dependsOn: [...])` per module, nothing else) so they still build; the recorded results are unchanged.
+
 ## Limits — read before quoting numbers
 
 - **Small code base.** Each variant is about 3,000 tokens of hand-written code. An agent can read all of it in one or two commands, so differences in *search* effort barely show up. Larger apps may behave differently, in either direction.

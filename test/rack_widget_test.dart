@@ -70,7 +70,7 @@ class _ServiceWidget extends RackWidget<_ServiceController> {
 }
 
 class _ValueModule extends RackModule {
-  _ValueModule(this.value);
+  _ValueModule(this.value) : super(dependsOn: const []);
   final String value;
 }
 

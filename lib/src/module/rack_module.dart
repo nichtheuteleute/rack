@@ -4,10 +4,37 @@ import 'disposable.dart';
 /// lifecycle.
 ///
 /// Expose stores as `late final` fields wrapped in [use] — `late final` makes
-/// them lazy and single-instance, [use] registers them for disposal. A module
-/// declares its dependency on another module by taking it as a constructor
-/// argument, so the dependency is compile-safe.
+/// them lazy and single-instance, [use] registers them for disposal.
+///
+/// A module takes the modules it needs as constructor arguments and names
+/// them again in [dependsOn], which every module must pass to this
+/// constructor:
+///
+/// ```dart
+/// class FilesModule extends RackModule {
+///   FilesModule(this.settings) : super(dependsOn: [settings]);
+///   final SettingsModule settings;
+/// }
+///
+/// class SettingsModule extends RackModule {
+///   SettingsModule() : super(dependsOn: const []);
+/// }
+/// ```
 abstract class RackModule implements Disposable {
+  /// Creates a module that depends on the modules in [dependsOn].
+  RackModule({required List<RackModule> dependsOn})
+      : dependsOn = List.unmodifiable(dependsOn);
+
+  /// The modules this module needs — usually exactly its module constructor
+  /// arguments; `const []` if it needs none.
+  ///
+  /// `RackProvider` uses it to
+  /// - run this module's [init] only after theirs has completed, and run
+  ///   independent modules in parallel,
+  /// - register a dependency that is not listed in the provider (or provided
+  ///   by a parent provider) automatically.
+  final List<RackModule> dependsOn;
+
   final List<void Function()> _disposers = [];
 
   /// Registers [instance] for disposal (if it is [Disposable]) and returns it.
@@ -17,36 +44,8 @@ abstract class RackModule implements Disposable {
   }
 
   /// Optional async initialization, run by `RackProvider` before its subtree
-  /// is built. When it runs relative to other modules is controlled by
-  /// [dependsOn].
+  /// is built, after the [init] of every module in [dependsOn] has completed.
   Future<void> init() async {}
-
-  /// The modules whose [init] must complete before this module's [init]
-  /// starts.
-  ///
-  /// `null` (the default) means: all modules listed before this one in the
-  /// same `RackProvider` — modules are initialized one after another, in list
-  /// order.
-  ///
-  /// Return an explicit list to let modules initialize in parallel: a module
-  /// starts as soon as the modules it lists have finished, independent
-  /// modules start at the same time. Usually this lists the modules taken as
-  /// constructor arguments:
-  ///
-  /// ```dart
-  /// class FilesModule extends RackModule {
-  ///   FilesModule(this.settings);
-  ///   final SettingsModule settings;
-  ///
-  ///   @override
-  ///   List<RackModule> get dependsOn => [settings];
-  /// }
-  /// ```
-  ///
-  /// Return `const []` for a module that depends on nothing. Modules that are
-  /// not part of the same `RackProvider` (e.g. provided by a parent provider)
-  /// are already initialized and are ignored.
-  List<RackModule>? get dependsOn => null;
 
   @override
   void dispose() {

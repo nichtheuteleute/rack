@@ -8,7 +8,8 @@ import 'archive_store.dart';
 /// notes out of and back into, and loads the stored archive in [init].
 class ArchiveModule extends RackModule {
   ArchiveModule(this.notes, {required ArchiveStorage storage})
-      : _storage = storage;
+      : _storage = storage,
+        super(dependsOn: [notes]);
 
   final NotesModule notes;
   final ArchiveStorage _storage;

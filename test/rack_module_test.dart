@@ -13,7 +13,7 @@ class _Tracked implements Disposable {
 class _Plain {}
 
 class _MultiModule extends RackModule {
-  _MultiModule(this.log);
+  _MultiModule(this.log) : super(dependsOn: const []);
   final List<String> log;
 
   late final a = use(_Tracked(log, 'a'));
@@ -21,15 +21,17 @@ class _MultiModule extends RackModule {
 }
 
 class _PlainModule extends RackModule {
+  _PlainModule() : super(dependsOn: const []);
   late final value = use(_Plain());
 }
 
 class _CoreModule extends RackModule {
+  _CoreModule() : super(dependsOn: const []);
   late final settings = use(_Tracked(<String>[], 'core'));
 }
 
 class _DependentModule extends RackModule {
-  _DependentModule(this.core);
+  _DependentModule(this.core) : super(dependsOn: [core]);
   final _CoreModule core;
 }
 

@@ -2,8 +2,8 @@
   "rack": [
     {
       "step": "root: settings module not listed in RackProvider",
-      "result": "runtime error",
-      "detail": "StateError: Bad state: No module of type SettingsModule registered in Rack",
+      "result": "undetected",
+      "detail": "",
       "analyzer_hints": 0
     },
     {
@@ -28,6 +28,18 @@
       "step": "notes module does not get its storage",
       "result": "compile error",
       "detail": "error \u2022 The named parameter 'storage' is required, but there's no corresponding argument. Try adding the required argument \u2022 lib/main.dart:33:23 \u2022 missing_required_argument",
+      "analyzer_hints": 0
+    },
+    {
+      "step": "notes module's dependsOn omits the settings module",
+      "result": "undetected",
+      "detail": "",
+      "analyzer_hints": 0
+    },
+    {
+      "step": "notes module's dependsOn omits settings and settings is not listed",
+      "result": "runtime error",
+      "detail": "StateError: Bad state: No module of type SettingsModule registered in Rack",
       "analyzer_hints": 0
     }
   ],
@@ -136,38 +148,6 @@
       "step": "notes feature does not get the settings",
       "result": "silent bug",
       "detail": "['n3', 'n2', 'n1']",
-      "analyzer_hints": 0
-    }
-  ],
-  "rack_dependsOn": [
-    {
-      "step": "root: settings module not listed in RackProvider",
-      "result": "undetected",
-      "detail": "",
-      "analyzer_hints": 0
-    },
-    {
-      "step": "root: notes module not listed in RackProvider",
-      "result": "runtime error",
-      "detail": "StateError: Bad state: No module of type NotesModule registered in Rack",
-      "analyzer_hints": 1
-    },
-    {
-      "step": "notes feature does not get the settings module",
-      "result": "compile error",
-      "detail": "error \u2022 1 positional argument expected by 'NotesModule.new', but 0 found. Try adding the missing argument \u2022 lib/main.dart:33:35 \u2022 not_enough_positional_arguments",
-      "analyzer_hints": 0
-    },
-    {
-      "step": "settings module does not get its storage",
-      "result": "compile error",
-      "detail": "error \u2022 The named parameter 'storage' is required, but there's no corresponding argument. Try adding the required argument \u2022 lib/main.dart:32:26 \u2022 missing_required_argument",
-      "analyzer_hints": 0
-    },
-    {
-      "step": "notes module does not get its storage",
-      "result": "compile error",
-      "detail": "error \u2022 The named parameter 'storage' is required, but there's no corresponding argument. Try adding the required argument \u2022 lib/main.dart:33:23 \u2022 missing_required_argument",
       "analyzer_hints": 0
     }
   ]

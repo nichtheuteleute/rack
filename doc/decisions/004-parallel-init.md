@@ -1,6 +1,6 @@
 # ADR 004: Parallele Initialisierung über `dependsOn`
 
-**Status:** Akzeptiert.
+**Status:** Teilweise ersetzt durch [ADR 006](006-required-depends-on.md): `dependsOn` ist Pflicht, der Default `null` (Listenreihenfolge) entfällt.
 
 ## Context
 

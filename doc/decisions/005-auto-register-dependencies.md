@@ -1,6 +1,6 @@
 # ADR 005: Deklarierte Abhängigkeiten automatisch registrieren
 
-**Status:** Akzeptiert. Baut auf [ADR 004](004-parallel-init.md) auf.
+**Status:** Teilweise ersetzt durch [ADR 006](006-required-depends-on.md): `dependsOn` ist Pflicht, der Default `null` (Listenreihenfolge) entfällt.
 
 ## Context
 

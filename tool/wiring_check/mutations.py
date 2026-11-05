@@ -25,6 +25,13 @@ MUTATIONS = {
          "lib/main.dart",
          "NotesModule(_settings, storage: widget.notesStorage)",
          "NotesModule(_settings)"),
+        ("notes module's dependsOn omits the settings module",
+         "lib/features/notes/notes_module.dart",
+         "super(dependsOn: [settings])", "super(dependsOn: const [])"),
+        ("notes module's dependsOn omits settings and settings is not listed",
+         "lib/features/notes/notes_module.dart",
+         "super(dependsOn: [settings])", "super(dependsOn: const [])",
+         ("lib/main.dart", "modules: [_settings, _notes],", "modules: [_notes],")),
     ],
     "riverpod": [
         ("root: notes storage not overridden",
@@ -142,20 +149,7 @@ MUTATIONS = {
     ],
 }
 
-# Additional scenario: the rack variant with dependencies declared in
-# `dependsOn`, as the rack README recommends. Same mutations as "rack".
-VARIANT_SOURCE = {"rack_dependsOn": "rack"}
-PREPARE = {
-    "rack_dependsOn": [
-        ("lib/features/settings/settings_module.dart",
-         "  late final settings = use(SettingsStore(_storage));\n",
-         "  late final settings = use(SettingsStore(_storage));\n\n"
-         "  @override\n  List<RackModule> get dependsOn => const [];\n"),
-        ("lib/features/notes/notes_module.dart",
-         "  @override\n  Future<void> init() => notes.load();\n",
-         "  @override\n  List<RackModule> get dependsOn => [settings];\n\n"
-         "  @override\n  Future<void> init() => notes.load();\n"),
-    ],
-}
-MUTATIONS["rack_dependsOn"] = MUTATIONS["rack"]
-
+# No variant needs preparation since dependsOn became required (ADR 006); the
+# rack variant declares its dependencies itself.
+VARIANT_SOURCE = {}
+PREPARE = {}

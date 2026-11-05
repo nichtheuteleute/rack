@@ -96,7 +96,7 @@ def main():
             code, out = sh("fvm flutter pub get", base)
             assert code == 0, out
             rows = []
-            for desc, rel, old, new in MUTATIONS[variant]:
+            for desc, rel, old, new, *extra in MUTATIONS[variant]:
                 d = pathlib.Path(tmp) / f"{variant}_m"
                 if d.exists():
                     shutil.rmtree(d)
@@ -105,6 +105,11 @@ def main():
                 src = f.read_text()
                 assert src.count(old) == 1, f"{variant}: '{desc}' target not unique"
                 f.write_text(src.replace(old, new))
+                for x_rel, x_old, x_new in extra:
+                    x = d / x_rel
+                    x_src = x.read_text()
+                    assert x_src.count(x_old) == 1, f"{variant}: '{desc}' extra"
+                    x.write_text(x_src.replace(x_old, x_new))
                 shutil.copy(HERE / "startup_probe_test.dart",
                             d / "test" / "zz_startup_probe_test.dart")
                 _, analyze_out = sh("fvm flutter analyze", d)

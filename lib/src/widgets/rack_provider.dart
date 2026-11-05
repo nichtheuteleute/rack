@@ -5,26 +5,24 @@ import '../module/rack_module.dart';
 /// Composition root: initializes [modules] and provides them to the
 /// subtree built by [builder].
 ///
-/// Each module's `init()` runs once its [RackModule.dependsOn] modules have
-/// finished — by default that is every module listed before it, so modules
-/// initialize one after another in list order. Modules that declare their
-/// dependencies explicitly initialize in parallel where possible. Until all
-/// of them have completed, [loading] is shown; if one throws or the declared
-/// dependencies form a cycle, [errorBuilder] is shown. The modules are
-/// disposed in reverse order when the provider unmounts.
+/// Each module's `init()` runs as soon as the modules in its
+/// [RackModule.dependsOn] have finished theirs; independent modules
+/// initialize in parallel. Until all of them have completed, [loading] is
+/// shown; if one throws or the dependencies form a cycle, [errorBuilder] is
+/// shown. The modules are disposed in reverse order when the provider
+/// unmounts.
 ///
-/// Modules named in a module's [RackModule.dependsOn] are registered
-/// automatically if they are neither in [modules] nor provided by a parent
-/// provider — forgetting to list a dependency cannot leave it uninitialized.
-/// Two different instances of the same module type are reported as an error.
+/// A module named in some module's [RackModule.dependsOn] is registered
+/// automatically if it is neither in [modules] nor provided by a parent
+/// provider, so a dependency cannot be left uninitialized. Two different
+/// instances of the same module type are reported as an error.
 ///
 /// Providers can be nested: a nested provider sees its parent's modules, and
 /// its own modules replace parent modules of the same type.
 class RackProvider extends StatefulWidget {
-  /// The modules to provide, already instantiated. A module that depends on
-  /// another takes it as a constructor argument and is listed after it — or
-  /// names it in [RackModule.dependsOn], then it is registered automatically
-  /// and need not be listed.
+  /// The modules to provide, already instantiated, in any order. Modules
+  /// reached only through [RackModule.dependsOn] need not be listed — list
+  /// the modules that widgets look up.
   ///
   /// Read once when the provider mounts: the provider owns these instances
   /// and disposes them on unmount. Modules passed on a later rebuild are
@@ -110,7 +108,7 @@ class _RackProviderState extends State<RackProvider> {
     final visiting = <RackModule>{};
     void add(RackModule module) {
       if (result.contains(module) || !visiting.add(module)) return;
-      for (final dep in module.dependsOn ?? const <RackModule>[]) {
+      for (final dep in module.dependsOn) {
         if (!listed.contains(dep) && !fromParent.contains(dep)) add(dep);
       }
       visiting.remove(module);
@@ -137,17 +135,12 @@ class _RackProviderState extends State<RackProvider> {
     }
   }
 
-  /// The modules of this provider that [module] waits for.
-  List<RackModule> _dependenciesOf(RackModule module) {
-    final declared = module.dependsOn;
-    if (declared == null) {
-      return _modules.sublist(0, _modules.indexOf(module));
-    }
-    return [
-      for (final dep in declared)
-        if (_modules.contains(dep)) dep,
-    ];
-  }
+  /// The modules of this provider that [module] waits for. Dependencies
+  /// from a parent provider are already initialized.
+  List<RackModule> _dependenciesOf(RackModule module) => [
+        for (final dep in module.dependsOn)
+          if (_modules.contains(dep)) dep,
+      ];
 
   /// [_modules] sorted so that every module comes after its dependencies.
   /// Throws a [StateError] if the dependencies form a cycle.

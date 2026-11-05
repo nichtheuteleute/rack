@@ -8,7 +8,8 @@ import 'notes_store.dart';
 /// and loads the stored notes in [init].
 class NotesModule extends RackModule {
   NotesModule(this.settings, {required NotesStorage storage})
-      : _storage = storage;
+      : _storage = storage,
+        super(dependsOn: [settings]);
 
   final SettingsModule settings;
   final NotesStorage _storage;

@@ -5,12 +5,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:rack/rack.dart';
 
 class _ValueModule extends RackModule {
-  _ValueModule(this.value);
+  _ValueModule(this.value) : super(dependsOn: const []);
   final String value;
 }
 
 class _SlowModule extends RackModule {
-  _SlowModule(this._completer);
+  _SlowModule(this._completer) : super(dependsOn: const []);
   final Completer<void> _completer;
 
   @override
@@ -18,12 +18,14 @@ class _SlowModule extends RackModule {
 }
 
 class _ThrowingModule extends RackModule {
+  _ThrowingModule() : super(dependsOn: const []);
+
   @override
   Future<void> init() async => throw Exception('boom');
 }
 
 class _DisposeOrderModule extends RackModule {
-  _DisposeOrderModule(this._log, this.tag);
+  _DisposeOrderModule(this._log, this.tag) : super(dependsOn: const []);
   final List<String> _log;
   final String tag;
 
@@ -37,16 +39,13 @@ class _DisposeOrderModule extends RackModule {
 /// Records when its init starts; finishes when [finish] is called. The type
 /// argument only gives each instance its own module type.
 class _TrackedModule<T> extends RackModule {
-  _TrackedModule(this.name, this.started, {this.deps});
+  _TrackedModule(this.name, this.started, {List<RackModule> deps = const []})
+      : super(dependsOn: deps);
   final String name;
   final List<String> started;
-  final List<RackModule>? deps;
   final _completer = Completer<void>();
 
   void finish() => _completer.complete();
-
-  @override
-  List<RackModule>? get dependsOn => deps;
 
   @override
   Future<void> init() {
@@ -56,21 +55,23 @@ class _TrackedModule<T> extends RackModule {
 }
 
 class _FailingModule extends RackModule {
-  @override
-  List<RackModule> get dependsOn => const [];
+  _FailingModule() : super(dependsOn: const []);
 
   @override
   Future<void> init() async => throw Exception('boom');
 }
 
+/// Cycles cannot be built through constructors; a subclass overriding
+/// [RackModule.dependsOn] could still create one.
 class _CycleA extends RackModule {
+  _CycleA() : super(dependsOn: const []);
   late RackModule other;
   @override
   List<RackModule> get dependsOn => [other];
 }
 
 class _CycleB extends RackModule {
-  _CycleB(this.other);
+  _CycleB(this.other) : super(dependsOn: const []);
   final RackModule other;
   @override
   List<RackModule> get dependsOn => [other];
@@ -98,17 +99,12 @@ class _Notes {}
 
 class _Storage {}
 
-class _Legacy {}
-
 /// Logs init and dispose.
 class _LoggingModule<T> extends RackModule {
-  _LoggingModule(this.name, this.log, this.deps);
+  _LoggingModule(this.name, this.log, List<RackModule> deps)
+      : super(dependsOn: deps);
   final String name;
   final List<String> log;
-  final List<RackModule>? deps;
-
-  @override
-  List<RackModule>? get dependsOn => deps;
 
   @override
   Future<void> init() async => log.add('init $name');
@@ -406,25 +402,6 @@ void main() {
           },
         ));
 
-    testWidgets('without dependsOn, modules initialize one after another',
-        (tester) async {
-      final started = <String>[];
-      final a = _TrackedModule<_A>('a', started);
-      final b = _TrackedModule<_B>('b', started);
-      await tester.pumpWidget(provider([a, b]));
-      await tester.pump();
-      expect(started, ['a']);
-
-      a.finish();
-      await tester.pump();
-      expect(started, ['a', 'b']);
-      expect(find.text('ready'), findsNothing);
-
-      b.finish();
-      await tester.pumpAndSettle();
-      expect(find.text('ready'), findsOneWidget);
-    });
-
     testWidgets('modules with dependsOn: [] initialize in parallel',
         (tester) async {
       final started = <String>[];
@@ -467,26 +444,6 @@ void main() {
       files.finish();
       await tester.pumpAndSettle();
       expect(find.text('ready'), findsOneWidget);
-    });
-
-    testWidgets('a default module still waits for all modules listed before',
-        (tester) async {
-      final started = <String>[];
-      final a = _TrackedModule<_A>('a', started, deps: const []);
-      final b = _TrackedModule<_B>('b', started, deps: const []);
-      final c = _TrackedModule<_C>('c', started);
-      await tester.pumpWidget(provider([a, b, c]));
-      await tester.pump();
-      expect(started, ['a', 'b']);
-
-      a.finish();
-      await tester.pump();
-      expect(started, ['a', 'b']);
-      b.finish();
-      await tester.pump();
-      expect(started, ['a', 'b', 'c']);
-      c.finish();
-      await tester.pumpAndSettle();
     });
 
     testWidgets('a dependency provided by a parent provider is reused',
@@ -586,23 +543,6 @@ void main() {
 
       expect(log, ['init storage', 'init settings', 'init notes']);
       expect(find.text('ready'), findsOneWidget);
-    });
-
-    testWidgets(
-        'a module listed without dependsOn still waits for '
-        'auto-registered modules placed before it', (tester) async {
-      final log = <String>[];
-      final settings = _LoggingModule<_Settings>('settings', log, const []);
-      final notes = _LoggingModule<_Notes>('notes', log, [settings]);
-      final legacy = _LoggingModule<_Legacy>('legacy', log, null);
-
-      await tester.pumpWidget(_wrap(RackProvider(
-        modules: [notes, legacy],
-        builder: () => const Text('ready'),
-      )));
-      await tester.pumpAndSettle();
-
-      expect(log, ['init settings', 'init notes', 'init legacy']);
     });
 
     testWidgets('two instances of one module type are reported',
