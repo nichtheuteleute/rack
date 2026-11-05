@@ -1,6 +1,6 @@
 # Rack
 
-Lightweight DI + controller lifecycle for Flutter. No code generation, no ChangeNotifier, no boilerplate.
+**Small, explicit dependency injection and controller lifecycle for Flutter.** No code generation, no dependencies.
 
 Rack does two things:
 1. **Groups services into modules** (stores, sources, clients) that are created once, optionally initialized async at app start, and disposed together.
@@ -10,11 +10,11 @@ State management is not Rack's job, and Rack has no dependencies besides Flutter
 
 ## Why Rack
 
-- **Small enough to read completely.** About 160 lines of code in six classes (roughly 2,000 tokens). You, a reviewer or an AI coding agent can read the whole library instead of guessing how it works. For comparison: flutter_bloc + bloc ≈ 1,100 lines, get_it ≈ 2,300, provider ≈ 2,500, flutter_riverpod + riverpod ≈ 9,500.
-- **No dependencies, no code generation.** Only Flutter. No `build_runner`, no generated files to keep in sync, no version conflicts with the state library you choose.
-- **Wiring mistakes surface early.** Module dependencies are constructor arguments, so forgetting one is a compile error; a module that is used but not provided fails at startup with its name. We removed every wiring step, one at a time, from the same app built with rack, Riverpod, Bloc and provider: with rack, 3 of 5 were compile errors and 2 failed at startup naming the missing module — nothing silent. With Bloc and provider, a forgotten link between two features compiled fine and the app silently showed stale data ([details](tool/wiring_check/RESULTS.md)).
-- **Negligible overhead.** Mounting a screen with its controller costs about 0.8 µs — 0.15 µs more than a hand-written `StatefulWidget`, and about 40 % less than the usual provider pattern ([benchmark](tool/benchmark/README.md)).
-- **Easy for AI coding agents to pick up.** The whole library fits into about 2,000 tokens. In a benchmark of 90 Claude Code runs on the same app built with rack, Riverpod and Bloc, agents solved all 30 rack tasks without ever opening rack's documentation — the project's own README was enough. rack did not make agents cheaper, though: token cost was on par with Riverpod on small changes and higher when a new dependency between features had to be wired ([method and results](tool/agent_bench/RESULTS.md)).
+**Small.** About 220 lines of code in six classes — roughly 3,000 tokens. You, a reviewer or an AI coding agent can read the whole library in a few minutes instead of guessing how it works. (For comparison: flutter_bloc + bloc ≈ 1,100 lines, get_it ≈ 2,300, provider ≈ 2,500, flutter_riverpod + riverpod ≈ 9,500.) In our [agent benchmark](tool/agent_bench/RESULTS.md), coding agents solved every rack task without ever opening rack's documentation.
+
+**Explicit.** A module's dependencies are its constructor arguments — what it needs is written where it is declared, and a module never looks up its dependencies at runtime. The initialization order follows from that: a dependency has to exist before it can be passed, so it is always initialized first. Mistakes are loud: a missing dependency does not compile, and a module that is used but not provided stops the app at startup with its name. When we removed each wiring step from the same app built with rack, Riverpod, Bloc and provider, rack never failed silently — Bloc and provider compiled a forgotten link between two features and showed stale data ([details](tool/wiring_check/RESULTS.md)).
+
+**No code generation, no dependencies.** Only Flutter. No `build_runner`, no generated files to keep in sync, no waiting for a build step after a change, no version conflicts with the state library you choose — and negligible runtime overhead: about 0.8 µs to mount a screen with its controller, less than the usual provider pattern ([benchmark](tool/benchmark/README.md)).
 
 ## Installation
 
@@ -342,7 +342,7 @@ Rack separates concerns: modules hold services, controllers receive them at crea
 
 ### vs. Riverpod
 
-Riverpod requires code generation (`.g.dart` files) for any non-trivial setup, and auto-dispose scoping requires understanding provider families and lifetimes. Testing needs `ProviderContainer` setup.
+Riverpod recommends code generation (`.g.dart` files, `build_runner`), and auto-dispose scoping requires understanding provider families and lifetimes. Dependencies between providers live inside their bodies (`ref.watch`), not in a signature. Testing needs `ProviderContainer` setup.
 
 Rack has no generated code. Controller lifecycle is explicit — a controller exists exactly as long as its widget. Testing a controller is plain Dart: construct it with mock stores, call methods, assert on signal values.
 
