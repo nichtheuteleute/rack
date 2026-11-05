@@ -141,3 +141,21 @@ MUTATIONS = {
          """          update: (context, settings, notes) => notes!,"""),
     ],
 }
+
+# Additional scenario: the rack variant with dependencies declared in
+# `dependsOn`, as the rack README recommends. Same mutations as "rack".
+VARIANT_SOURCE = {"rack_dependsOn": "rack"}
+PREPARE = {
+    "rack_dependsOn": [
+        ("lib/features/settings/settings_module.dart",
+         "  late final settings = use(SettingsStore(_storage));\n",
+         "  late final settings = use(SettingsStore(_storage));\n\n"
+         "  @override\n  List<RackModule> get dependsOn => const [];\n"),
+        ("lib/features/notes/notes_module.dart",
+         "  @override\n  Future<void> init() => notes.load();\n",
+         "  @override\n  List<RackModule> get dependsOn => [settings];\n\n"
+         "  @override\n  Future<void> init() => notes.load();\n"),
+    ],
+}
+MUTATIONS["rack_dependsOn"] = MUTATIONS["rack"]
+

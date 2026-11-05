@@ -24,7 +24,7 @@ import tempfile
 HERE = pathlib.Path(__file__).resolve().parent
 VARIANTS = HERE.parent / "agent_bench" / "variants"
 sys.path.insert(0, str(HERE))
-from mutations import MUTATIONS  # noqa: E402
+from mutations import MUTATIONS, PREPARE, VARIANT_SOURCE  # noqa: E402
 
 
 def sh(cmd, cwd, timeout=600):
@@ -66,15 +66,33 @@ def classify(analyze_out, test_code, test_out):
     return "undetected", "", warnings
 
 
+def snapshot_rack():
+    """The rack variant depends on rack by path (/tmp/rack-bench/pkg/rack);
+    refresh it from this repository so the current rack is tested."""
+    repo = HERE.parent.parent
+    target = pathlib.Path("/tmp/rack-bench/pkg/rack")
+    if target.exists():
+        shutil.rmtree(target)
+    target.mkdir(parents=True)
+    shutil.copytree(repo / "lib", target / "lib")
+    for f in ["pubspec.yaml", "README.md", "LICENSE", "CHANGELOG.md"]:
+        shutil.copy(repo / f, target / f)
+
+
 def main():
+    snapshot_rack()
     variants = sys.argv[1:] or list(MUTATIONS)
     results_path = HERE / "results.json"
     results = json.loads(results_path.read_text()) if results_path.exists() else {}
     with tempfile.TemporaryDirectory() as tmp:
         for variant in variants:
             base = pathlib.Path(tmp) / f"{variant}_base"
-            shutil.copytree(VARIANTS / variant, base,
+            shutil.copytree(VARIANTS / VARIANT_SOURCE.get(variant, variant), base,
                             ignore=shutil.ignore_patterns("build", ".fvm"))
+            for rel, old, new in PREPARE.get(variant, []):
+                src = (base / rel).read_text()
+                assert src.count(old) == 1, f"{variant}: prepare target {rel}"
+                (base / rel).write_text(src.replace(old, new))
             code, out = sh("fvm flutter pub get", base)
             assert code == 0, out
             rows = []

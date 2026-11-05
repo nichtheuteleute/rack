@@ -6,7 +6,9 @@ Initial release.
   `use()` registers services for disposal; module dependencies are
   constructor arguments.
 - `RackProvider`: initializes modules in order — or in parallel where
-  modules declare their dependencies with `RackModule.dependsOn` — shows `loading` /
+  modules declare their dependencies with `RackModule.dependsOn` — registers
+  declared dependencies that are not listed, rejects two instances of one
+  module type, shows `loading` /
   `errorBuilder` while starting up, disposes modules on unmount. Providers can
   be nested to scope modules to a subtree.
 - `RackWidget`: creates one controller per widget and disposes it on
