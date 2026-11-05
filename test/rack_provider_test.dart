@@ -34,6 +34,47 @@ class _DisposeOrderModule extends RackModule {
   }
 }
 
+/// Records when its init starts; finishes when [finish] is called.
+class _TrackedModule extends RackModule {
+  _TrackedModule(this.name, this.started, {this.deps});
+  final String name;
+  final List<String> started;
+  final List<RackModule>? deps;
+  final _completer = Completer<void>();
+
+  void finish() => _completer.complete();
+
+  @override
+  List<RackModule>? get dependsOn => deps;
+
+  @override
+  Future<void> init() {
+    started.add(name);
+    return _completer.future;
+  }
+}
+
+class _FailingModule extends RackModule {
+  @override
+  List<RackModule> get dependsOn => const [];
+
+  @override
+  Future<void> init() async => throw Exception('boom');
+}
+
+class _CycleA extends RackModule {
+  late RackModule other;
+  @override
+  List<RackModule> get dependsOn => [other];
+}
+
+class _CycleB extends RackModule {
+  _CycleB(this.other);
+  final RackModule other;
+  @override
+  List<RackModule> get dependsOn => [other];
+}
+
 Widget _wrap(Widget child) =>
     Directionality(textDirection: TextDirection.ltr, child: child);
 
@@ -294,6 +335,142 @@ void main() {
           ),
         ),
       );
+    });
+  });
+
+  group('RackProvider init order', () {
+    Widget provider(List<RackModule> modules,
+            {void Function(Object)? onError}) =>
+        _wrap(RackProvider(
+          modules: modules,
+          builder: () => const Text('ready'),
+          errorBuilder: (e) {
+            onError?.call(e);
+            return const Text('error');
+          },
+        ));
+
+    testWidgets('without dependsOn, modules initialize one after another',
+        (tester) async {
+      final started = <String>[];
+      final a = _TrackedModule('a', started);
+      final b = _TrackedModule('b', started);
+      await tester.pumpWidget(provider([a, b]));
+      await tester.pump();
+      expect(started, ['a']);
+
+      a.finish();
+      await tester.pump();
+      expect(started, ['a', 'b']);
+      expect(find.text('ready'), findsNothing);
+
+      b.finish();
+      await tester.pumpAndSettle();
+      expect(find.text('ready'), findsOneWidget);
+    });
+
+    testWidgets('modules with dependsOn: [] initialize in parallel',
+        (tester) async {
+      final started = <String>[];
+      final a = _TrackedModule('a', started, deps: const []);
+      final b = _TrackedModule('b', started, deps: const []);
+      final c = _TrackedModule('c', started, deps: const []);
+      await tester.pumpWidget(provider([a, b, c]));
+      await tester.pump();
+      expect(started, ['a', 'b', 'c']);
+
+      c.finish();
+      b.finish();
+      await tester.pump();
+      expect(find.text('ready'), findsNothing);
+      a.finish();
+      await tester.pumpAndSettle();
+      expect(find.text('ready'), findsOneWidget);
+    });
+
+    testWidgets('a module waits for the modules it depends on', (tester) async {
+      final started = <String>[];
+      final settings = _TrackedModule('settings', started, deps: const []);
+      final other = _TrackedModule('other', started, deps: const []);
+      final files = _TrackedModule('files', started, deps: [settings]);
+      // Listed before its dependency on purpose: order does not matter
+      // once dependencies are declared.
+      await tester.pumpWidget(provider([files, settings, other]));
+      await tester.pump();
+      expect(started, unorderedEquals(['settings', 'other']));
+
+      other.finish();
+      await tester.pump();
+      expect(started, isNot(contains('files')));
+
+      settings.finish();
+      await tester.pump();
+      expect(started.last, 'files');
+
+      files.finish();
+      await tester.pumpAndSettle();
+      expect(find.text('ready'), findsOneWidget);
+    });
+
+    testWidgets('a default module still waits for all modules listed before',
+        (tester) async {
+      final started = <String>[];
+      final a = _TrackedModule('a', started, deps: const []);
+      final b = _TrackedModule('b', started, deps: const []);
+      final c = _TrackedModule('c', started);
+      await tester.pumpWidget(provider([a, b, c]));
+      await tester.pump();
+      expect(started, ['a', 'b']);
+
+      a.finish();
+      await tester.pump();
+      expect(started, ['a', 'b']);
+      b.finish();
+      await tester.pump();
+      expect(started, ['a', 'b', 'c']);
+      c.finish();
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('dependencies outside the provider are ignored',
+        (tester) async {
+      final started = <String>[];
+      final parentModule = _TrackedModule('parent', started, deps: const []);
+      final child = _TrackedModule('child', started, deps: [parentModule]);
+      await tester.pumpWidget(provider([child]));
+      await tester.pump();
+      expect(started, ['child']);
+      child.finish();
+      await tester.pumpAndSettle();
+      expect(find.text('ready'), findsOneWidget);
+    });
+
+    testWidgets('a failing dependency stops its dependents and is reported',
+        (tester) async {
+      final started = <String>[];
+      final failing = _FailingModule();
+      final dependent = _TrackedModule('dependent', started, deps: [failing]);
+      Object? error;
+      await tester.pumpWidget(
+          provider([failing, dependent], onError: (e) => error = e));
+      await tester.pumpAndSettle();
+
+      expect(started, isEmpty);
+      expect(find.text('error'), findsOneWidget);
+      expect(error.toString(), contains('_FailingModule.init() failed'));
+    });
+
+    testWidgets('a dependency cycle is reported as an error', (tester) async {
+      final a = _CycleA();
+      final b = _CycleB(a);
+      a.other = b;
+      Object? error;
+      await tester.pumpWidget(provider([a, b], onError: (e) => error = e));
+      await tester.pumpAndSettle();
+
+      expect(find.text('error'), findsOneWidget);
+      expect(error.toString(), contains('cycle'));
+      expect(error.toString(), contains('_CycleA -> _CycleB -> _CycleA'));
     });
   });
 }

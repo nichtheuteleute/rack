@@ -5,7 +5,8 @@ Initial release.
 - `RackModule`: typed container for services with optional async `init()`.
   `use()` registers services for disposal; module dependencies are
   constructor arguments.
-- `RackProvider`: initializes modules in order, shows `loading` /
+- `RackProvider`: initializes modules in order — or in parallel where
+  modules declare their dependencies with `RackModule.dependsOn` — shows `loading` /
   `errorBuilder` while starting up, disposes modules on unmount. Providers can
   be nested to scope modules to a subtree.
 - `RackWidget`: creates one controller per widget and disposes it on

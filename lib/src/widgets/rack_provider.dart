@@ -5,15 +5,19 @@ import '../module/rack_module.dart';
 /// Composition root: initializes [modules] and provides them to the
 /// subtree built by [builder].
 ///
-/// Each module's `init()` is awaited in list order. Until all of them have
-/// completed, [loading] is shown; if one throws, [errorBuilder] is shown.
-/// The modules are disposed in reverse order when the provider unmounts.
+/// Each module's `init()` runs once its [RackModule.dependsOn] modules have
+/// finished — by default that is every module listed before it, so modules
+/// initialize one after another in list order. Modules that declare their
+/// dependencies explicitly initialize in parallel where possible. Until all
+/// of them have completed, [loading] is shown; if one throws or the declared
+/// dependencies form a cycle, [errorBuilder] is shown. The modules are
+/// disposed in reverse order when the provider unmounts.
 ///
 /// Providers can be nested: a nested provider sees its parent's modules, and
 /// its own modules replace parent modules of the same type.
 class RackProvider extends StatefulWidget {
   /// The modules to provide, already instantiated. A module that depends on
-  /// another takes it as a constructor argument and must be listed after it.
+  /// another takes it as a constructor argument and is listed after it.
   ///
   /// Read once when the provider mounts: the provider owns these instances
   /// and disposes them on unmount. Modules passed on a later rebuild are
@@ -59,18 +63,63 @@ class _RackProviderState extends State<RackProvider> {
 
   Future<void> _setup() async {
     try {
-      for (final module in _modules) {
-        if (!mounted) return;
-        try {
-          await module.init();
-        } catch (e) {
-          throw StateError('${module.runtimeType}.init() failed: $e');
-        }
+      final order = _initOrder();
+      final done = <RackModule, Future<void>>{};
+      for (final module in order) {
+        final deps = _dependenciesOf(module);
+        done[module] = Future.wait([for (final d in deps) done[d]!])
+            .then((_) => _init(module));
       }
+      await Future.wait(done.values);
       if (mounted) setState(() => _initialized = true);
     } catch (e) {
       if (mounted) setState(() => _initError = e);
     }
+  }
+
+  Future<void> _init(RackModule module) async {
+    if (!mounted) return;
+    try {
+      await module.init();
+    } catch (e) {
+      throw StateError('${module.runtimeType}.init() failed: $e');
+    }
+  }
+
+  /// The modules of this provider that [module] waits for.
+  List<RackModule> _dependenciesOf(RackModule module) {
+    final declared = module.dependsOn;
+    if (declared == null) {
+      return _modules.sublist(0, _modules.indexOf(module));
+    }
+    return [
+      for (final dep in declared)
+        if (_modules.contains(dep)) dep,
+    ];
+  }
+
+  /// [_modules] sorted so that every module comes after its dependencies.
+  /// Throws a [StateError] if the dependencies form a cycle.
+  List<RackModule> _initOrder() {
+    final order = <RackModule>[];
+    final visiting = <RackModule>[];
+    void visit(RackModule module) {
+      if (order.contains(module)) return;
+      if (visiting.contains(module)) {
+        final cycle = [
+          ...visiting.sublist(visiting.indexOf(module)),
+          module,
+        ].map((m) => m.runtimeType).join(' -> ');
+        throw StateError('Module dependencies form a cycle: $cycle');
+      }
+      visiting.add(module);
+      _dependenciesOf(module).forEach(visit);
+      visiting.removeLast();
+      order.add(module);
+    }
+
+    _modules.forEach(visit);
+    return order;
   }
 
   @override

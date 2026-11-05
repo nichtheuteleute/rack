@@ -119,7 +119,31 @@ class FilesModule extends RackModule {
 }
 ```
 
-Modules are initialized sequentially, in list order — each `init()` is awaited before the next one starts. List a module after the modules it depends on, so their `init()` has completed before its own runs.
+By default, modules are initialized sequentially, in list order — each `init()` is awaited before the next one starts. List a module after the modules it depends on, so their `init()` has completed before its own runs.
+
+**Faster startup with parallel init.** Override `dependsOn` to name the modules a module actually waits for — usually exactly its constructor arguments. Rack then starts every module as soon as its dependencies are done, so independent modules initialize at the same time:
+
+```dart
+class SettingsModule extends RackModule {
+  late final settings = use(SettingsStore());
+
+  @override
+  List<RackModule> get dependsOn => const []; // depends on nothing
+
+  @override
+  Future<void> init() => settings.load();
+}
+
+class FilesModule extends RackModule {
+  FilesModule(this.settings);
+  final SettingsModule settings;
+
+  @override
+  List<RackModule> get dependsOn => [settings]; // waits only for settings
+}
+```
+
+Five independent modules that each load for 50 ms take 50 ms instead of 250 ms. Modules without an override keep waiting for everything listed before them, so you can opt in module by module. A dependency cycle is reported through `errorBuilder`.
 
 ---
 
@@ -355,7 +379,7 @@ Rack controllers are plain Dart objects. A button tap is a method call. If you n
 ## Rules
 
 - **One module per type.** A `RackProvider` holds one instance per module runtime type. Nest a `RackProvider` to scope modules to a subtree.
-- **Dependencies go through the constructor.** A module takes the modules it needs as constructor arguments and is listed after them in `RackProvider`.
+- **Dependencies go through the constructor.** A module takes the modules it needs as constructor arguments and is listed after them in `RackProvider`. For parallel init, name the same modules in `dependsOn`.
 - **Create modules once.** Pass instances that outlive rebuilds — never construct them inline in a `build` method.
 - **No business logic in widgets.** Widgets call controller methods; controllers call stores. Never the other way.
 - **Controllers get stores, not other controllers.** Shared state belongs in a store.
@@ -367,6 +391,7 @@ Rack controllers are plain Dart objects. A button tap is a method call. If you n
 - [ADR 001: Live-Lookup statt Snapshot im init()-Rack](doc/decisions/001-live-lookup-in-init.md) — superseded
 - [ADR 002: Module als typisierte Container](doc/decisions/002-typed-modules.md)
 - [ADR 003: Keine Abhängigkeit zu signals](doc/decisions/003-no-signals-dependency.md)
+- [ADR 004: Parallele Initialisierung über `dependsOn`](doc/decisions/004-parallel-init.md)
 
 ## License
 
