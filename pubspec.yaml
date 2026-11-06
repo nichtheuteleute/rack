@@ -2,7 +2,7 @@ name: rack
 description: >-
   Lightweight dependency injection and controller lifecycle for Flutter.
   Typed modules with async init, one controller per screen, no code generation.
-version: 0.1.1
+version: 0.1.2
 repository: https://github.com/nichtheuteleute/rack
 issue_tracker: https://github.com/nichtheuteleute/rack/issues
 topics:

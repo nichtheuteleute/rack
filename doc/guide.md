@@ -61,23 +61,29 @@ class _EditorScreenState extends State<EditorScreen> {
   final _editor = EditorModule(); // created once, not on every build
 
   @override
-  Widget build(BuildContext context) => RackProvider(
-    modules: [_editor],
-    builder: () => const _EditorView(),
-  );
+  Widget build(BuildContext context) {
+    return RackProvider(
+      modules: [_editor],
+      builder: () => const _EditorView(),
+    );
+  }
 }
 
 class _EditorView extends RackWidget<EditorController> {
   const _EditorView();
 
   @override
-  EditorController create(Rack rack) => EditorController(
-    filesStore: rack.module<FilesModule>().files,       // global — from the app-root provider
-    searchStore: rack.module<EditorModule>().search,    // scoped — from EditorScreen's provider
-  );
+  EditorController create(Rack rack) {
+    return EditorController(
+      filesStore: rack.module<FilesModule>().files,    // global — from the app-root provider
+      searchStore: rack.module<EditorModule>().search, // scoped — from EditorScreen's provider
+    );
+  }
 
   @override
-  Widget buildContent(BuildContext context, EditorController controller) => …;
+  Widget buildContent(BuildContext context, EditorController controller) {
+    return EditorView(controller: controller);
+  }
 }
 ```
 
@@ -144,8 +150,9 @@ class _FilterChip extends SignalWidget {
   final NotesController controller;
 
   @override
-  Widget build(BuildContext context) =>
-      Text(controller.filter.value.name); // tracked
+  Widget build(BuildContext context) {
+    return Text(controller.filter.value.name); // tracked
+  }
 }
 ```
 
@@ -160,8 +167,11 @@ abstract class SignalRackWidget<C extends Object> extends RackWidget<C> {
   Widget buildReactive(BuildContext context, C controller);
 
   @override
-  Widget buildContent(BuildContext context, C controller) =>
-      SignalBuilder(builder: (context) => buildReactive(context, controller));
+  Widget buildContent(BuildContext context, C controller) {
+    return SignalBuilder(
+      builder: (context) => buildReactive(context, controller),
+    );
+  }
 }
 ```
 
@@ -174,7 +184,3 @@ controller.count.value = 1;
 await tester.pump();
 expect(find.text('1'), findsOneWidget);
 ```
-
-## Design decisions
-
-The reasoning behind rack's design is recorded in [doc/decisions](decisions/).
