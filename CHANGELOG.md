@@ -1,3 +1,9 @@
+## 0.1.2
+
+- Docs: README shows how to connect a signals store to the UI.
+- Docs: removed internal design notes (`doc/decisions`).
+- Removed internal benchmark tooling from the repository.
+
 ## 0.1.1
 
 - Shorter README; details moved to `doc/guide.md`.
